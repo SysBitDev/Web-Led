@@ -271,6 +271,8 @@ static void stairs_effect_task(void *arg) {
     }
 }
 
+
+
 /**
  * @brief Start the wave effect
  */

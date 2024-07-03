@@ -65,7 +65,7 @@
     "BT_ALARM_MAX_NUM": 50,
     "BT_ENABLED": false,
     "BUTTON_GPIO": 4,
-    "CHASE_SPEED_MS": 25,
+    "CHASE_SPEED_MS": 75,
     "COMPILER_CXX_EXCEPTIONS": false,
     "COMPILER_CXX_RTTI": false,
     "COMPILER_DISABLE_GCC12_WARNINGS": false,

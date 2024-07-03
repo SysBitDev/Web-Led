@@ -144,8 +144,8 @@ void led_strip_start(void) {
             led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
         }
         led_strip_pixels[i * 3 + 0] = green;
-        led_strip_pixels[i * 3 + 1] = blue;
-        led_strip_pixels[i * 3 + 2] = red;
+        led_strip_pixels[i * 3 + 1] = red;
+        led_strip_pixels[i * 3 + 2] = blue;
     }
 
     ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
@@ -183,7 +183,7 @@ static void wave_effect_task(void *arg) {
 
     uint8_t led_strip_pixels[LED_NUMBERS * 3];
     int group_size = 5;  // Size of LED groups
-    const uint8_t min_brightness = 1;
+    const uint8_t min_brightness = led_brightness;
 
     while (1) {
         for (int i = 0; i < LED_NUMBERS; i++) {
@@ -194,8 +194,8 @@ static void wave_effect_task(void *arg) {
             led_strip_hsv2rgb(hue, 255, brightness, &red, &green, &blue);  // Always use RGB mode for wave effect
 
             led_strip_pixels[i * 3 + 0] = green;
-            led_strip_pixels[i * 3 + 1] = blue;
-            led_strip_pixels[i * 3 + 2] = red;
+            led_strip_pixels[i * 3 + 1] = red;
+            led_strip_pixels[i * 3 + 2] = blue;
         }
 
         ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
@@ -237,8 +237,8 @@ static void stairs_effect_task(void *arg) {
                     led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
                 }
                 led_strip_pixels[i * 3 + 0] = green;
-                led_strip_pixels[i * 3 + 1] = blue;
-                led_strip_pixels[i * 3 + 2] = red;
+                led_strip_pixels[i * 3 + 1] = red;
+                led_strip_pixels[i * 3 + 2] = blue;
             }
             ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
             ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
@@ -257,8 +257,8 @@ static void stairs_effect_task(void *arg) {
                     led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
                 }
                 led_strip_pixels[i * 3 + 0] = green;
-                led_strip_pixels[i * 3 + 1] = blue;
-                led_strip_pixels[i * 3 + 2] = red;
+                led_strip_pixels[i * 3 + 1] = red;
+                led_strip_pixels[i * 3 + 2] = blue;
             }
             ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
             ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
@@ -341,8 +341,8 @@ void led_strip_set_color(uint8_t r, uint8_t g, uint8_t b) {
 
     for (int i = 0; i < LED_NUMBERS; i++) {
         led_strip_pixels[i * 3 + 0] = adjusted_g;
-        led_strip_pixels[i * 3 + 1] = adjusted_b;
-        led_strip_pixels[i * 3 + 2] = adjusted_r;
+        led_strip_pixels[i * 3 + 1] = adjusted_r;
+        led_strip_pixels[i * 3 + 2] = adjusted_b;
     }
 
     ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));

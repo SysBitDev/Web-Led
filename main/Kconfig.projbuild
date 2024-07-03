@@ -1,0 +1,35 @@
+menu "Project Configuration"
+
+    config RMT_LED_STRIP_GPIO_NUM
+        int "GPIO number where the LED strip is connected"
+        default 18
+        help
+            The GPIO number where the LED strip is connected.
+    
+    config LED_NUMBERS
+        int "Number of LEDs in the strip"
+        default 24
+        range 1 300
+        help
+            The number of LEDs in the strip.
+    
+    config CHASE_SPEED_MS
+        int "Speed of the chase effect (milliseconds)"
+        default 25
+        help
+            The speed of the chase effect in milliseconds.
+    
+    config MOTION_SENSOR_GPIO
+        int "GPIO number where the motion sensor is connected"
+        default 19
+        help
+            The GPIO number where the motion sensor is connected.
+
+    config BUTTON_GPIO
+        int "GPIO number for the button to clear WiFi config"
+        default 4
+        help
+            The GPIO number where the button to clear WiFi config is connected.
+    
+endmenu
+    

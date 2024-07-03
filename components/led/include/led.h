@@ -34,4 +34,8 @@ void led_strip_set_color(uint8_t r, uint8_t g, uint8_t b);
 /// @brief Resets the LED strip to the RGB mode.
 void led_strip_reset_to_rgb(void);
 
+void led_strip_motion_effect_1(void);
+
+void led_strip_motion_effect_2(void);
+
 #endif // LED_H

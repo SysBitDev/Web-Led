@@ -41,6 +41,13 @@ static uint8_t current_g = 255;
 static uint8_t current_b = 255;
 static bool custom_color_mode = false;
 
+typedef struct {
+    int direction;  // 1 for ascend, -1 for descend
+    int delay_ms;   // Delay in milliseconds between light up and light down
+} stairs_effect_task_params_t;
+
+static void stairs_effect_task(void *arg);
+
 /**
  * @brief Convert HSV color space to RGB color space
  *
@@ -120,17 +127,11 @@ void led_strip_init(void) {
     ESP_ERROR_CHECK(rmt_enable(led_chan));
 }
 
-/**
- * @brief Start the LED strip with a rainbow color pattern or custom color if set
- */
 void led_strip_start(void) {
     ESP_LOGI(TAG, "Start LED strip");
     uint32_t red, green, blue;
     uint16_t hue = 0;
-    rmt_transmit_config_t tx_config = {
-        .loop_count = 0,
-    };
-
+    rmt_transmit_config_t tx_config = {.loop_count = 0};
     uint8_t led_strip_pixels[LED_NUMBERS * 3];
     memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
 
@@ -144,25 +145,19 @@ void led_strip_start(void) {
             led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
         }
         led_strip_pixels[i * 3 + 0] = green;
-        led_strip_pixels[i * 3 + 1] = red;
-        led_strip_pixels[i * 3 + 2] = blue;
+        led_strip_pixels[i * 3 + 1] = blue;
+        led_strip_pixels[i * 3 + 2] = red;
     }
 
     ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
     ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
 }
 
-/**
- * @brief Stop the LED strip by turning off all LEDs
- */
 void led_strip_stop(void) {
     ESP_LOGI(TAG, "Stop LED strip");
     uint8_t led_strip_pixels[LED_NUMBERS * 3];
     memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
-    rmt_transmit_config_t tx_config = {
-        .loop_count = 0,
-    };
-
+    rmt_transmit_config_t tx_config = {.loop_count = 0};
     ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
     ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
 }
@@ -206,8 +201,6 @@ static void wave_effect_task(void *arg) {
         offset += wave_direction;  // Increment offset for continuous effect
     }
 }
-
-
 
 /**
  * @brief Task to run the stairs effect on the LED strip
@@ -288,6 +281,35 @@ void led_strip_stairs_effect(void) {
     }
     xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, NULL, 5, &effect_task_handle);
 }
+
+void led_strip_motion_effect_1(void) {
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    stairs_effect_task_params_t params = {.direction = 1};  // Початок до кінця
+    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Затримка перед згасанням
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    params.direction = -1;  // З кінця до початку для згасання
+    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
+}
+
+void led_strip_motion_effect_2(void) {
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    stairs_effect_task_params_t params = {.direction = -1};  // З кінця до початку
+    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Затримка перед згасанням
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    params.direction = 1;  // Початок до кінця для згасання
+    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
+}
+
 
 /**
  * @brief Change the direction of the wave effect.

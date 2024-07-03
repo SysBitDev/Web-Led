@@ -30,6 +30,9 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                         "<input type='range' min='0' max='100' value='100' id='brightnessSlider' oninput='updateBrightness(this.value)'><br><br>"
                         "<input type='color' id='colorPicker' onchange='updateColor(this.value)'><br><br>"
                         "<button onclick=\"sendRequest('/reset-to-rgb')\">Reset to RGB Mode</button><br><br>"
+                        "<button onclick=\"sendRequest('/motion-detected-1')\">Motion Detected 1</button><br><br>"
+                        "<button onclick=\"sendRequest('/motion-detected-2')\">Motion Detected 2</button><br><br>"
+
                         "<script>"
                         "function sendRequest(url) {"
                         "  var xhttp = new XMLHttpRequest();"
@@ -170,6 +173,19 @@ static esp_err_t reset_to_rgb_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t motion_detected_1_handler(httpd_req_t *req) {
+    led_strip_motion_effect_1();
+    httpd_resp_send(req, "Motion 1 Effect Started", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t motion_detected_2_handler(httpd_req_t *req) {
+    led_strip_motion_effect_2();
+    httpd_resp_send(req, "Motion 2 Effect Started", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+
 // URI registration for handlers
 static httpd_uri_t root = {
     .uri = "/",
@@ -241,28 +257,51 @@ static httpd_uri_t empty_uri = {
     .user_ctx = NULL
 };
 
+static httpd_uri_t motion_detected_1 = {
+    .uri = "/motion-detected-1",
+    .method = HTTP_GET,
+    .handler = motion_detected_1_handler,
+    .user_ctx = NULL
+};
+
+static httpd_uri_t motion_detected_2 = {
+    .uri = "/motion-detected-2",
+    .method = HTTP_GET,
+    .handler = motion_detected_2_handler,
+    .user_ctx = NULL
+};
+
+
 /// @brief Starts the web server and registers URI handlers
 void start_webserver(void) {
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();  // Default configuration for the HTTP server
-    config.max_uri_handlers = 15;
-
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.stack_size = 8192;  // Adjust stack size as needed
+    config.max_uri_handlers = 20;
+    
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
         ESP_LOGI(TAG, "Registering URI handlers");
+
+        // Register root handler
         httpd_register_uri_handler(server, &root);
+
+        // Register other handlers
         httpd_register_uri_handler(server, &led_on);
         httpd_register_uri_handler(server, &led_off);
         httpd_register_uri_handler(server, &wave_effect);
         httpd_register_uri_handler(server, &stairs_effect);
         httpd_register_uri_handler(server, &toggle_wave_direction);
         httpd_register_uri_handler(server, &set_brightness);
-        httpd_register_uri_handler(server, &reset_to_rgb);
         httpd_register_uri_handler(server, &set_color);
+        httpd_register_uri_handler(server, &reset_to_rgb);
+        httpd_register_uri_handler(server, &motion_detected_1);
+        httpd_register_uri_handler(server, &motion_detected_2);
         httpd_register_uri_handler(server, &empty_uri);
     } else {
         ESP_LOGI(TAG, "Error starting server!");
     }
 }
+
 
 /// @brief Stops the web server
 void stop_webserver(void) {

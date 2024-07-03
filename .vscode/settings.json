@@ -21,6 +21,9 @@
         "event_groups.h": "c",
         "freertos.h": "c",
         "http_parser.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "err.h": "c",
+        "http.h": "c",
+        "gpio.h": "c"
     }
 }

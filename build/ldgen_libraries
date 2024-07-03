@@ -47,6 +47,7 @@ C:/Dev/internship/build/esp-idf/tcp_transport/libtcp_transport.a
 C:/Dev/internship/build/esp-idf/esp_http_client/libesp_http_client.a
 C:/Dev/internship/build/esp-idf/esp_http_server/libesp_http_server.a
 C:/Dev/internship/build/esp-idf/esp_https_ota/libesp_https_ota.a
+C:/Dev/internship/build/esp-idf/esp_https_server/libesp_https_server.a
 C:/Dev/internship/build/esp-idf/esp_lcd/libesp_lcd.a
 C:/Dev/internship/build/esp-idf/protobuf-c/libprotobuf-c.a
 C:/Dev/internship/build/esp-idf/protocomm/libprotocomm.a
@@ -63,3 +64,6 @@ C:/Dev/internship/build/esp-idf/spiffs/libspiffs.a
 C:/Dev/internship/build/esp-idf/wifi_provisioning/libwifi_provisioning.a
 C:/Dev/internship/build/esp-idf/espressif__led_strip/libespressif__led_strip.a
 C:/Dev/internship/build/esp-idf/main/libmain.a
+C:/Dev/internship/build/esp-idf/led/libled.a
+C:/Dev/internship/build/esp-idf/http/libhttp.a
+C:/Dev/internship/build/esp-idf/wifi/libwifi.a

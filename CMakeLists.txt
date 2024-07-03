@@ -14,3 +14,5 @@ idf_build_set_property(COMPILE_DEFINITIONS "-DPROJECT_CONFIG" APPEND)
 list(APPEND EXTRA_COMPONENT_DIRS ${PROJECT_DIR}/components)
 
 set(EXTRA_COMPONENT_DIRS ${CMAKE_SOURCE_DIR}/components)
+
+set(EXTRA_COMPONENT_DIRS "components/http" "components/led" "components/wifi")

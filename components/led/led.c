@@ -183,21 +183,16 @@ static void wave_effect_task(void *arg) {
 
     uint8_t led_strip_pixels[LED_NUMBERS * 3];
     int group_size = 5;  // Size of LED groups
-    const uint8_t min_brightness = 5;  // Мінімальна яскравість для уникнення вимкнення діодів
+    const uint8_t min_brightness = 1;
 
     while (1) {
         for (int i = 0; i < LED_NUMBERS; i++) {
             hue = ((i + offset) % LED_NUMBERS) * 360 / LED_NUMBERS;
             uint8_t brightness = (sin((float)(i % group_size) / group_size * 2 * M_PI) + 1) * (led_brightness / 2.0);  // Brightness based on group size and led_brightness
-            brightness = brightness < min_brightness ? min_brightness : brightness;  // Застосовуємо мінімальну яскравість
+            brightness = brightness < min_brightness ? min_brightness : brightness;
 
-            if (custom_color_mode) {
-                red = current_r * brightness / 100;
-                green = current_g * brightness / 100;
-                blue = current_b * brightness / 100;
-            } else {
-                led_strip_hsv2rgb(hue, 255, brightness, &red, &green, &blue);
-            }
+            led_strip_hsv2rgb(hue, 255, brightness, &red, &green, &blue);  // Always use RGB mode for wave effect
+
             led_strip_pixels[i * 3 + 0] = green;
             led_strip_pixels[i * 3 + 1] = blue;
             led_strip_pixels[i * 3 + 2] = red;
@@ -206,11 +201,12 @@ static void wave_effect_task(void *arg) {
         ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
         ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
 
-        vTaskDelay(pdMS_TO_TICKS(100));  // Delay for smooth effect
+        vTaskDelay(pdMS_TO_TICKS(CHASE_SPEED_MS));  // Delay for smooth effect
 
         offset += wave_direction;  // Increment offset for continuous effect
     }
 }
+
 
 
 /**

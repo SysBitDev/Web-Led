@@ -18,6 +18,7 @@
 #define RMT_LED_STRIP_GPIO_NUM CONFIG_RMT_LED_STRIP_GPIO_NUM // GPIO number where the LED strip is connected
 #define LED_NUMBERS CONFIG_LED_NUMBERS // Number of LEDs in the strip
 #define CHASE_SPEED_MS CONFIG_CHASE_SPEED_MS // Speed of the chase effect
+#define DELAY_STAIRS_MS CONFIG_DELAY_STAIRS_MS // Speed of the chase effect
 
 // Logger tag for debugging
 static const char *TAG = "LED";
@@ -40,13 +41,6 @@ static uint8_t current_r = 255;
 static uint8_t current_g = 255;
 static uint8_t current_b = 255;
 static bool custom_color_mode = false;
-
-typedef struct {
-    int direction;  // 1 for ascend, -1 for descend
-    int delay_ms;   // Delay in milliseconds between light up and light down
-} stairs_effect_task_params_t;
-
-static void stairs_effect_task(void *arg);
 
 /**
  * @brief Convert HSV color space to RGB color space
@@ -261,6 +255,115 @@ static void stairs_effect_task(void *arg) {
 }
 
 
+static void strip_motion_effect_1_task(void *arg) {
+    ESP_LOGI(TAG, "Running LED motion 1 effect 1 once");
+    uint32_t red, green, blue;
+    uint16_t hue = 0;
+    rmt_transmit_config_t tx_config = {.loop_count = 0};
+    uint8_t led_strip_pixels[LED_NUMBERS * 3];
+
+    for (int j = LED_NUMBERS - 1; j >= 0; j--) {
+        memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
+        for (int i = LED_NUMBERS - 1; i >= j; i--) {
+            hue = (LED_NUMBERS - 1 - i) * 360 / LED_NUMBERS;
+            if (custom_color_mode) {
+                red = current_r * led_brightness / 100;
+                green = current_g * led_brightness / 100;
+                blue = current_b * led_brightness / 100;
+            } else {
+                led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
+            }
+            led_strip_pixels[i * 3 + 0] = green;
+            led_strip_pixels[i * 3 + 1] = red;
+            led_strip_pixels[i * 3 + 2] = blue;
+        }
+        ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
+        ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(DELAY_STAIRS_MS));
+
+    for (int j = LED_NUMBERS - 1; j >= 0; j--) {
+        for (int i = LED_NUMBERS - 1; i > j; i--) {
+            led_strip_pixels[i * 3 + 0] = 0;
+            led_strip_pixels[i * 3 + 1] = 0;
+            led_strip_pixels[i * 3 + 2] = 0;
+        }
+        ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
+        ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
+    ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
+    ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+
+    vTaskSuspend(NULL);
+}
+
+static void strip_motion_effect_2_task(void *arg) {
+    ESP_LOGI(TAG, "Running LED motion 2 effect 1 once");
+    uint32_t red, green, blue;
+    uint16_t hue = 0;
+    rmt_transmit_config_t tx_config = {
+        .loop_count = 0,
+    };
+    uint8_t led_strip_pixels[LED_NUMBERS * 3];
+
+        // Light up from the beginning to the end
+    for (int j = 0; j < LED_NUMBERS; j++) {
+        memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
+        for (int i = 0; i <= j; i++) {
+            hue = i * 360 / LED_NUMBERS;  // Adjust hue for color effects from the start to the end
+            if (custom_color_mode) {
+                red = current_r * led_brightness / 100;
+                green = current_g * led_brightness / 100;
+                blue = current_b * led_brightness / 100;
+            } else {
+                led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
+            }
+            led_strip_pixels[i * 3 + 0] = green;
+            led_strip_pixels[i * 3 + 1] = red;
+            led_strip_pixels[i * 3 + 2] = blue;
+        }
+        ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
+        ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(DELAY_STAIRS_MS));
+
+    // Turn off from the beginning to the end
+    for (int j = 0; j < LED_NUMBERS; j++) {
+        for (int i = 0; i <= j; i++) {
+            led_strip_pixels[i * 3 + 0] = 0;
+            led_strip_pixels[i * 3 + 1] = 0;
+            led_strip_pixels[i * 3 + 2] = 0;
+        }
+        ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
+        ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
+    vTaskSuspend(NULL);
+}
+
+void led_strip_motion_effect_1(void) {
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    xTaskCreate(strip_motion_effect_1_task, "strip_motion_effect_1_task", 2048, NULL, 5, &effect_task_handle);
+}
+
+
+void led_strip_motion_effect_2(void) {
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    xTaskCreate(strip_motion_effect_2_task, "strip_motion_effect_2_task", 2048, NULL, 5, &effect_task_handle);
+}
+
 
 /**
  * @brief Start the wave effect
@@ -280,34 +383,6 @@ void led_strip_stairs_effect(void) {
         vTaskDelete(effect_task_handle);
     }
     xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, NULL, 5, &effect_task_handle);
-}
-
-void led_strip_motion_effect_1(void) {
-    if (effect_task_handle != NULL) {
-        vTaskDelete(effect_task_handle);
-    }
-    stairs_effect_task_params_t params = {.direction = 1};  // Початок до кінця
-    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Затримка перед згасанням
-    if (effect_task_handle != NULL) {
-        vTaskDelete(effect_task_handle);
-    }
-    params.direction = -1;  // З кінця до початку для згасання
-    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
-}
-
-void led_strip_motion_effect_2(void) {
-    if (effect_task_handle != NULL) {
-        vTaskDelete(effect_task_handle);
-    }
-    stairs_effect_task_params_t params = {.direction = -1};  // З кінця до початку
-    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Затримка перед згасанням
-    if (effect_task_handle != NULL) {
-        vTaskDelete(effect_task_handle);
-    }
-    params.direction = 1;  // Початок до кінця для згасання
-    xTaskCreate(stairs_effect_task, "stairs_effect_task", 2048, &params, 5, &effect_task_handle);
 }
 
 

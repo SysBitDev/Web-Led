@@ -4772,6 +4772,16 @@
                 "range": null,
                 "title": "GPIO number for the button to clear WiFi config",
                 "type": "int"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": "Delay between fade-in and fade-out of a staircase effect tape.",
+                "id": "DELAY_STAIRS_MS",
+                "name": "DELAY_STAIRS_MS",
+                "range": null,
+                "title": "Delay between fade-in and fade-out of a staircase effect tape",
+                "type": "int"
             }
         ],
         "depends_on": null,

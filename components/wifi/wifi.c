@@ -16,28 +16,31 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 
-const char *TAG = "wifi";
-EventGroupHandle_t s_wifi_event_group;
-const int WIFI_CONNECTED_BIT = BIT0;
-const int WIFI_FAIL_BIT = BIT1;
-const int ESPTOUCH_DONE_BIT = BIT2;
+const char *TAG = "wifi"; ///< Tag for logging module
+EventGroupHandle_t s_wifi_event_group; ///< Event group to signal when WiFi events occur
+const int WIFI_CONNECTED_BIT = BIT0; ///< Event bit indicating WiFi is connected
+const int WIFI_FAIL_BIT = BIT1; ///< Event bit indicating WiFi connection failure
+const int ESPTOUCH_DONE_BIT = BIT2; ///< Event bit indicating completion of SmartConfig
 
-#define BUTTON_GPIO CONFIG_BUTTON_GPIO
-#define BUTTON_PRESS_TIMEOUT_MS 1000
+#define BUTTON_GPIO CONFIG_BUTTON_GPIO ///< GPIO number for the button
+#define BUTTON_PRESS_TIMEOUT_MS 1000 ///< Timeout for button press detection in milliseconds
 
-int s_retry_num = 0;
+int s_retry_num = 0; ///< Counter for retry attempts to connect to WiFi
 #ifndef CONFIG_MAX_RETRY
-#define CONFIG_MAX_RETRY 5
+#define CONFIG_MAX_RETRY 5 ///< Default maximum number of retry attempts
 #endif
 
-const int MAX_RETRY = CONFIG_MAX_RETRY;
+const int MAX_RETRY = CONFIG_MAX_RETRY; ///< Maximum number of WiFi retry attempts
 
-static volatile bool wifi_connected = false;
-static volatile bool esptouch_done = false;
-static volatile bool reset_wifi_config = false;
+static volatile bool wifi_connected = false; ///< Flag for WiFi connection status
+static volatile bool esptouch_done = false; ///< Flag for SmartConfig completion status
+static volatile bool reset_wifi_config = false; ///< Flag for indicating WiFi configuration reset
 
-static void smartconfig_example_task(void * parm);
+static void smartconfig_example_task(void * parm); ///< Forward declaration for SmartConfig task
 
+/**
+ * @brief Erases WiFi configuration from NVS.
+ */
 static void erase_wifi_config() {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
@@ -52,11 +55,13 @@ static void erase_wifi_config() {
     }
 }
 
-/// @brief Event handler for Wi-Fi and SmartConfig events
-/// @param arg User-defined argument
-/// @param event_base Base ID of the event
-/// @param event_id ID of the event
-/// @param event_data Data associated with the event
+/**
+ * @brief Handles all events for Wi-Fi, SmartConfig, and IP.
+ * @param arg User-defined argument
+ * @param event_base Base ID of the event
+ * @param event_id ID of the event
+ * @param event_data Data associated with the event
+ */
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         // Try to connect using saved credentials first if not reset
@@ -152,8 +157,10 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
-/// @brief Task to handle SmartConfig process
-/// @param parm User-defined argument
+/**
+ * @brief Task to manage SmartConfig process.
+ * @param parm User-defined parameter, unused
+ */
 static void smartconfig_example_task(void * parm) {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -202,7 +209,9 @@ static void smartconfig_example_task(void * parm) {
     vTaskDelete(NULL);
 }
 
-/// @brief Initializes and starts Wi-Fi with SmartConfig
+/**
+ * @brief Initializes and starts the WiFi SmartConfig process.
+ */
 void wifi_init(void) {
     xTaskCreate(smartconfig_example_task, "smartconfig_example_task", 4096, NULL, 5, NULL);
 }

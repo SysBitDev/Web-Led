@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "internship",
-    "project_version":    "fb80200-dirty",
+    "project_version":    "4468ee0-dirty",
     "project_path":       "C:/Dev/internship",
     "idf_path":           "C:/Users/comp2/esp/v5.2.2/esp-idf",
     "build_dir":          "C:/Dev/internship/build",

@@ -3,12 +3,15 @@
 #include "esp_http_server.h"
 #include "led.h"
 
-static const char *TAG = "http_server";
-static httpd_handle_t server = NULL;
+static const char *TAG = "http_server"; ///< Tag used for ESP logging
+static httpd_handle_t server = NULL; ///< Handle for the HTTP server    
 
-/// @brief Handler for the root URI "/"
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for the root URI "/"
+ * Serves the main HTML interface for LED control.
+ * @param req HTTP request information.
+ * @return ESP_OK on successful response sending, otherwise ESP_FAIL.
+ */
 static esp_err_t root_get_handler(httpd_req_t *req) {
     const char resp[] = "<html><head>"
                         "<style>"
@@ -74,18 +77,22 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-/// @brief Handler for turning the LED strip on
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for turning the LED strip on.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t led_on_handler(httpd_req_t *req) {
     led_strip_start();
     httpd_resp_send(req, "LED Strip Turned On", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
-/// @brief Handler for turning the LED strip off
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for turning the LED strip off.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t led_off_handler(httpd_req_t *req) {
     led_strip_stop_effect();
     led_strip_stop();
@@ -93,36 +100,45 @@ static esp_err_t led_off_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-/// @brief Handler for starting the wave effect
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for starting the wave effect on the LED strip.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t wave_effect_handler(httpd_req_t *req) {
     led_strip_wave_effect();
     httpd_resp_send(req, "Wave Effect Started", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
-/// @brief Handler for starting the stairs effect
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for starting the stairs effect on the LED strip.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t stairs_effect_handler(httpd_req_t *req) {
     led_strip_stairs_effect();
     httpd_resp_send(req, "Stairs Effect Started", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
-/// @brief Handler for toggling the wave direction
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for toggling the wave direction of the LED strip.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t toggle_wave_direction_handler(httpd_req_t *req) {
     led_strip_toggle_wave_direction();
     httpd_resp_send(req, "Wave Direction Toggled", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
-/// @brief Handler for setting brightness
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for setting the brightness of the LED strip.
+ * Processes query parameters to adjust the brightness level.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t set_brightness_handler(httpd_req_t *req) {
     char buf[10];
     int brightness = 100; // Default brightness
@@ -139,9 +155,12 @@ static esp_err_t set_brightness_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-/// @brief Handler for setting the color of the LED strip
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for setting the color of the LED strip.
+ * Processes query parameters to adjust the color in RGB format.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t set_color_handler(httpd_req_t *req) {
     char buf[100];
     int r = 255, g = 255, b = 255; // Default to white color
@@ -164,21 +183,35 @@ static esp_err_t set_color_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-/// @brief Handler for resetting to RGB mode
-/// @param req HTTP request
-/// @return ESP_OK on success
+/**
+ * @brief Handler for resetting to RGB mode on the LED strip.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t reset_to_rgb_handler(httpd_req_t *req) {
     led_strip_reset_to_rgb();
     httpd_resp_send(req, "RGB Mode Restored", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
+/**
+ * @brief Handler for simulating motion detected effect 1.
+ * Activates a predefined effect to simulate a motion detection event.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t motion_detected_1_handler(httpd_req_t *req) {
     led_strip_motion_effect_1();
     httpd_resp_send(req, "Motion 1 Effect Started", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
+/**
+ * @brief Handler for simulating motion detected effect 2.
+ * Activates a different predefined effect to simulate another motion detection event.
+ * @param req HTTP request information.
+ * @return ESP_OK on success, indicating that the response was successfully sent.
+ */
 static esp_err_t motion_detected_2_handler(httpd_req_t *req) {
     led_strip_motion_effect_2();
     httpd_resp_send(req, "Motion 2 Effect Started", HTTPD_RESP_USE_STRLEN);

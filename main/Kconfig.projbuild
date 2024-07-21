@@ -30,6 +30,11 @@ menu "Project Configuration"
         default 4
         help
             The GPIO number where the button to clear WiFi config is connected.
+    config DELAY_STAIRS_MS
+        int "Delay between fade-in and fade-out of a staircase effect tape"
+        default 1000
+        help
+            Delay between fade-in and fade-out of a staircase effect tape.
     
 endmenu
     

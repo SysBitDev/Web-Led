@@ -12,7 +12,7 @@
         "interface/ftdi/esp32_devkitj_v1.cfg",
         "target/esp32.cfg"
     ],
-    "idf.portWin": "COM3",
+    "idf.portWin": "COM13",
     "idf.pythonBinPathWin": "C:\\Users\\vitaliy\\.espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "C:\\Users\\vitaliy\\.espressif",
     "idf.flashType": "UART",
@@ -26,7 +26,8 @@
         "http.h": "c",
         "gpio.h": "c",
         "led.h": "c",
-        "esp_log.h": "c"
+        "esp_log.h": "c",
+        "motion.h": "c"
     },
     "idf.gitPathWin": "C:\\Users\\vitaliy\\.espressif\\tools\\idf-git\\2.39.2\\cmd\\git.exe"
 }

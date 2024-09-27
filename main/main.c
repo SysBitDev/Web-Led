@@ -9,25 +9,19 @@
 #include "mdns.h"
 
 void app_main(void) {
-    // Ініціалізація NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
     wifi_init();
-
     led_strip_init();
     led_strip_load_parameters();
     led_strip_start();
-
     motion_sensor_init();
-
     mdns_init();
     mdns_hostname_set("smart-stairs");
     mdns_instance_name_set("Smart Stairs");
-
     start_webserver();
 }

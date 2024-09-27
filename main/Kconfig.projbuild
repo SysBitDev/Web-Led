@@ -27,7 +27,7 @@ menu "Project Configuration"
 
     config BUTTON_GPIO
         int "GPIO number for the button to clear WiFi config"
-        default 4
+        default 12
         help
             The GPIO number where the button to clear WiFi config is connected.
     config DELAY_STAIRS_MS

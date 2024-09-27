@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "internship",
-    "project_version":    "9495d8d-dirty",
+    "project_version":    "f94086b-dirty",
     "project_path":       "C:/DEV_tSpark/internship",
     "idf_path":           "C:/Users/vitaliy/esp/v5.2.2/esp-idf",
     "build_dir":          "C:/DEV_tSpark/internship/build",
@@ -25,8 +25,8 @@
         "COMPONENT_KCONFIGS_PROJBUILD" : "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/bootloader/Kconfig.projbuild;C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_app_format/Kconfig.projbuild;C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_rom/Kconfig.projbuild;C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esptool_py/Kconfig.projbuild;C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/partition_table/Kconfig.projbuild;C:/DEV_tSpark/internship/main/Kconfig.projbuild"
     },
     "common_component_reqs": [ "cxx", "newlib", "freertos", "esp_hw_support", "heap", "log", "soc", "hal", "esp_rom", "esp_common", "esp_system", "xtensa" ],
-    "build_components" : [ "app_trace", "app_update", "bootloader", "bootloader_support", "bt", "cmock", "console", "cxx", "driver", "efuse", "esp-tls", "esp_adc", "esp_app_format", "esp_bootloader_format", "esp_coex", "esp_common", "esp_eth", "esp_event", "esp_gdbstub", "esp_hid", "esp_http_client", "esp_http_server", "esp_https_ota", "esp_https_server", "esp_hw_support", "esp_lcd", "esp_local_ctrl", "esp_mm", "esp_netif", "esp_netif_stack", "esp_partition", "esp_phy", "esp_pm", "esp_psram", "esp_ringbuf", "esp_rom", "esp_system", "esp_timer", "esp_wifi", "espcoredump", "espressif__mdns", "esptool_py", "fatfs", "freertos", "hal", "heap", "http", "http_parser", "idf_test", "ieee802154", "json", "led", "log", "lwip", "main", "mbedtls", "motion", "mqtt", "newlib", "nvs_flash", "nvs_sec_provider", "openthread", "partition_table", "perfmon", "protobuf-c", "protocomm", "pthread", "sdmmc", "soc", "spi_flash", "spiffs", "tcp_transport", "ulp", "unity", "usb", "vfs", "wear_levelling", "wifi", "wifi_provisioning", "wpa_supplicant", "xtensa", "" ],
-    "build_component_paths" : [ "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/app_trace", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/app_update", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/bootloader", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/bootloader_support", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/bt", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/cmock", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/console", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/cxx", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/driver", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/efuse", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp-tls", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_adc", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_app_format", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_bootloader_format", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_coex", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_common", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_eth", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_event", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_gdbstub", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_hid", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_http_client", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_http_server", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_https_ota", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_https_server", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_hw_support", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_lcd", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_local_ctrl", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_mm", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_netif", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_netif_stack", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_partition", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_phy", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_pm", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_psram", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_ringbuf", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_rom", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_system", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_timer", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_wifi", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump", "C:/DEV_tSpark/internship/managed_components/espressif__mdns", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esptool_py", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/fatfs", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/freertos", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/hal", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/heap", "C:/DEV_tSpark/internship/components/http", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/http_parser", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/idf_test", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/ieee802154", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/json", "C:/DEV_tSpark/internship/components/led", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/log", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/lwip", "C:/DEV_tSpark/internship/main", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/mbedtls", "C:/DEV_tSpark/internship/components/motion", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/mqtt", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/newlib", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/nvs_flash", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/nvs_sec_provider", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/openthread", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/partition_table", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/perfmon", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/protobuf-c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/protocomm", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/pthread", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/sdmmc", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/soc", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/spi_flash", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/spiffs", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/tcp_transport", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/ulp", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/unity", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/usb", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/vfs", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/wear_levelling", "C:/DEV_tSpark/internship/components/wifi", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/wifi_provisioning", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/wpa_supplicant", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/xtensa", "" ],
+    "build_components" : [ "app_trace", "app_update", "bootloader", "bootloader_support", "bt", "cmock", "console", "cxx", "driver", "efuse", "esp-tls", "esp_adc", "esp_app_format", "esp_bootloader_format", "esp_coex", "esp_common", "esp_eth", "esp_event", "esp_gdbstub", "esp_hid", "esp_http_client", "esp_http_server", "esp_https_ota", "esp_https_server", "esp_hw_support", "esp_lcd", "esp_local_ctrl", "esp_mm", "esp_netif", "esp_netif_stack", "esp_partition", "esp_phy", "esp_pm", "esp_psram", "esp_ringbuf", "esp_rom", "esp_system", "esp_timer", "esp_wifi", "espcoredump", "espressif__led_strip", "espressif__mdns", "esptool_py", "fatfs", "freertos", "hal", "heap", "http", "http_parser", "idf_test", "ieee802154", "json", "led", "log", "lwip", "main", "mbedtls", "motion", "mqtt", "newlib", "nvs_flash", "nvs_sec_provider", "openthread", "partition_table", "perfmon", "protobuf-c", "protocomm", "pthread", "sdmmc", "soc", "spi_flash", "spiffs", "tcp_transport", "ulp", "unity", "usb", "vfs", "wear_levelling", "wifi", "wifi_provisioning", "wpa_supplicant", "xtensa", "" ],
+    "build_component_paths" : [ "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/app_trace", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/app_update", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/bootloader", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/bootloader_support", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/bt", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/cmock", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/console", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/cxx", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/driver", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/efuse", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp-tls", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_adc", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_app_format", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_bootloader_format", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_coex", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_common", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_eth", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_event", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_gdbstub", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_hid", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_http_client", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_http_server", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_https_ota", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_https_server", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_hw_support", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_lcd", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_local_ctrl", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_mm", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_netif", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_netif_stack", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_partition", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_phy", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_pm", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_psram", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_ringbuf", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_rom", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_system", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_timer", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esp_wifi", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump", "C:/DEV_tSpark/internship/managed_components/espressif__led_strip", "C:/DEV_tSpark/internship/managed_components/espressif__mdns", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/esptool_py", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/fatfs", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/freertos", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/hal", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/heap", "C:/DEV_tSpark/internship/components/http", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/http_parser", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/idf_test", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/ieee802154", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/json", "C:/DEV_tSpark/internship/components/led", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/log", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/lwip", "C:/DEV_tSpark/internship/main", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/mbedtls", "C:/DEV_tSpark/internship/components/motion", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/mqtt", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/newlib", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/nvs_flash", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/nvs_sec_provider", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/openthread", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/partition_table", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/perfmon", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/protobuf-c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/protocomm", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/pthread", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/sdmmc", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/soc", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/spi_flash", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/spiffs", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/tcp_transport", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/ulp", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/unity", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/usb", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/vfs", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/wear_levelling", "C:/DEV_tSpark/internship/components/wifi", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/wifi_provisioning", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/wpa_supplicant", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/xtensa", "" ],
     "build_component_info" : {
         "app_trace": {
             "alias": "idf::app_trace",
@@ -628,6 +628,21 @@
             "sources": [ "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/core_dump_common.c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/core_dump_flash.c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/core_dump_uart.c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/core_dump_elf.c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/core_dump_binary.c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/core_dump_sha.c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/core_dump_crc.c", "C:/Users/vitaliy/esp/v5.2.2/esp-idf/components/espcoredump/src/port/xtensa/core_dump_port.c" ],
             "include_dirs": [ "include", "include/port/xtensa" ]
         },
+        "espressif__led_strip": {
+            "alias": "idf::espressif__led_strip",
+            "target": "___idf_espressif__led_strip",
+            "prefix": "idf",
+            "dir": "C:/DEV_tSpark/internship/managed_components/espressif__led_strip",
+            "type": "LIBRARY",
+            "lib": "__idf_espressif__led_strip",
+            "reqs": [ "driver" ],
+            "priv_reqs": [],
+            "managed_reqs": [],
+            "managed_priv_reqs": [],
+            "file": "C:/DEV_tSpark/internship/build/esp-idf/espressif__led_strip/libespressif__led_strip.a",
+            "sources": [ "C:/DEV_tSpark/internship/managed_components/espressif__led_strip/src/led_strip_api.c", "C:/DEV_tSpark/internship/managed_components/espressif__led_strip/src/led_strip_rmt_dev.c", "C:/DEV_tSpark/internship/managed_components/espressif__led_strip/src/led_strip_rmt_encoder.c", "C:/DEV_tSpark/internship/managed_components/espressif__led_strip/src/led_strip_spi_dev.c" ],
+            "include_dirs": [ "include", "interface" ]
+        },
         "espressif__mdns": {
             "alias": "idf::espressif__mdns",
             "target": "___idf_espressif__mdns",
@@ -725,7 +740,7 @@
             "dir": "C:/DEV_tSpark/internship/components/http",
             "type": "LIBRARY",
             "lib": "__idf_http",
-            "reqs": [ "esp_http_server", "led" ],
+            "reqs": [ "esp_http_server", "led", "wifi", "nvs_flash", "mbedtls" ],
             "priv_reqs": [],
             "managed_reqs": [],
             "managed_priv_reqs": [],
@@ -800,7 +815,7 @@
             "dir": "C:/DEV_tSpark/internship/components/led",
             "type": "LIBRARY",
             "lib": "__idf_led",
-            "reqs": [ "driver", "nvs_flash" ],
+            "reqs": [ "driver", "nvs_flash", "espressif__led_strip" ],
             "priv_reqs": [],
             "managed_reqs": [],
             "managed_priv_reqs": [],
@@ -846,9 +861,9 @@
             "type": "LIBRARY",
             "lib": "__idf_main",
             "reqs": [],
-            "priv_reqs": [ "espressif__mdns" ],
+            "priv_reqs": [ "espressif__led_strip", "espressif__mdns" ],
             "managed_reqs": [],
-            "managed_priv_reqs": [ "espressif__mdns" ],
+            "managed_priv_reqs": [ "espressif__led_strip", "espressif__mdns" ],
             "file": "C:/DEV_tSpark/internship/build/esp-idf/main/libmain.a",
             "sources": [ "C:/DEV_tSpark/internship/main/main.c" ],
             "include_dirs": [ "." ]
@@ -2188,9 +2203,9 @@
             "dir": "C:/DEV_tSpark/internship/main",
             "lib": "__idf_main",
             "reqs": [],
-            "priv_reqs": [ "espressif__mdns" ],
+            "priv_reqs": [ "espressif__led_strip", "espressif__mdns" ],
             "managed_reqs": [],
-            "managed_priv_reqs": [ "espressif__mdns" ],
+            "managed_priv_reqs": [ "espressif__led_strip", "espressif__mdns" ],
             "include_dirs": [ "." ]
         },
         "http": {
@@ -2199,7 +2214,7 @@
             "prefix": "idf",
             "dir": "C:/DEV_tSpark/internship/components/http",
             "lib": "__idf_http",
-            "reqs": [ "esp_http_server", "led" ],
+            "reqs": [ "esp_http_server", "led", "wifi", "nvs_flash", "mbedtls" ],
             "priv_reqs": [],
             "managed_reqs": [],
             "managed_priv_reqs": [],
@@ -2211,7 +2226,7 @@
             "prefix": "idf",
             "dir": "C:/DEV_tSpark/internship/components/led",
             "lib": "__idf_led",
-            "reqs": [ "driver", "nvs_flash" ],
+            "reqs": [ "driver", "nvs_flash", "espressif__led_strip" ],
             "priv_reqs": [],
             "managed_reqs": [],
             "managed_priv_reqs": [],
@@ -2240,6 +2255,18 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "include_dirs": [ "include" ]
+        },
+        "espressif__led_strip": {
+            "alias": "idf::espressif__led_strip",
+            "target": "___idf_espressif__led_strip",
+            "prefix": "idf",
+            "dir": "C:/DEV_tSpark/internship/managed_components/espressif__led_strip",
+            "lib": "__idf_espressif__led_strip",
+            "reqs": [ "driver" ],
+            "priv_reqs": [],
+            "managed_reqs": [],
+            "managed_priv_reqs": [],
+            "include_dirs": [ "include", "interface" ]
         },
         "espressif__mdns": {
             "alias": "idf::espressif__mdns",

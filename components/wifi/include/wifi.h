@@ -1,9 +1,7 @@
 #ifndef WIFI_H
 #define WIFI_H
 
-/**
- * @brief Initializes Wi-Fi with SmartConfig.
- */
 void wifi_init(void);
+void erase_wifi_config(void);
 
 #endif // WIFI_H

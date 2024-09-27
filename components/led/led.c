@@ -16,11 +16,12 @@
 
 #define RMT_LED_STRIP_RESOLUTION_HZ 10000000
 #define RMT_LED_STRIP_GPIO_NUM CONFIG_RMT_LED_STRIP_GPIO_NUM
-#define LED_NUMBERS CONFIG_LED_NUMBERS
-#define CHASE_SPEED_MS CONFIG_CHASE_SPEED_MS
+#define LED_NUMBERS 300
+#define CHASE_SPEED_MS 50
 #define DELAY_STAIRS_MS CONFIG_DELAY_STAIRS_MS
 
 static const char *TAG = "LED";
+static uint8_t led_strip_pixels[LED_NUMBERS * 3];
 static rmt_channel_handle_t led_chan = NULL;
 static rmt_encoder_handle_t led_encoder = NULL;
 static TaskHandle_t effect_task_handle = NULL;
@@ -31,14 +32,19 @@ static uint8_t current_g = 255;
 static uint8_t current_b = 255;
 static bool custom_color_mode = false;
 
-// Декларації функцій
+static void set_pixel_color(uint8_t *pixel, uint8_t green, uint8_t red, uint8_t blue) {
+    pixel[0] = green;
+    pixel[1] = red;
+    pixel[2] = blue;
+}
+
 static void wave_effect_task(void *arg);
 static void stairs_effect_task(void *arg);
 static void stairs_on_task(void *arg);
 static void stairs_off_task(void *arg);
+static void check_esp_error(esp_err_t err, const char* task);
 static void strip_motion_effect_1_task(void *arg);
 static void strip_motion_effect_2_task(void *arg);
-static void check_esp_error(esp_err_t err, const char* task);
 
 static void check_esp_error(esp_err_t err, const char* task) {
     if (err != ESP_OK) {
@@ -46,21 +52,27 @@ static void check_esp_error(esp_err_t err, const char* task) {
     }
 }
 
-static void led_strip_hsv2rgb(uint32_t h, uint32_t s, uint32_t v, uint32_t *r, uint32_t *g, uint32_t *b) {
+static void led_strip_hsv2rgb(uint32_t h, uint32_t s, uint32_t v, uint8_t *r, uint8_t *g, uint8_t *b) {
     h %= 360;
     float rgb_max = v * 2.55f;
-    float rgb_min = rgb_max * (100 - s) / 100;
+    float rgb_min = rgb_max * (100.0f - s) / 100.0f;
     int i = h / 60;
     float diff = h % 60;
-    float rgb_adj = (rgb_max - rgb_min) * diff / 60;
+    float rgb_adj = (rgb_max - rgb_min) * diff / 60.0f;
+    float rf, gf, bf;
+
     switch (i) {
-        case 0: *r = rgb_max; *g = rgb_min + rgb_adj; *b = rgb_min; break;
-        case 1: *r = rgb_max - rgb_adj; *g = rgb_max; *b = rgb_min; break;
-        case 2: *r = rgb_min; *g = rgb_max; *b = rgb_min + rgb_adj; break;
-        case 3: *r = rgb_min; *g = rgb_max - rgb_adj; *b = rgb_max; break;
-        case 4: *r = rgb_min + rgb_adj; *g = rgb_min; *b = rgb_max; break;
-        default: *r = rgb_max; *g = rgb_min; *b = rgb_max - rgb_adj; break;
+        case 0: rf = rgb_max; gf = rgb_min + rgb_adj; bf = rgb_min; break;
+        case 1: rf = rgb_max - rgb_adj; gf = rgb_max; bf = rgb_min; break;
+        case 2: rf = rgb_min; gf = rgb_max; bf = rgb_min + rgb_adj; break;
+        case 3: rf = rgb_min; gf = rgb_max - rgb_adj; bf = rgb_max; break;
+        case 4: rf = rgb_min + rgb_adj; gf = rgb_min; bf = rgb_max; break;
+        default: rf = rgb_max; gf = rgb_min; bf = rgb_max - rgb_adj; break;
     }
+
+    *r = (uint8_t)(rf > 255 ? 255 : (rf < 0 ? 0 : rf));
+    *g = (uint8_t)(gf > 255 ? 255 : (gf < 0 ? 0 : gf));
+    *b = (uint8_t)(bf > 255 ? 255 : (bf < 0 ? 0 : bf));
 }
 
 void led_strip_init(void) {
@@ -73,22 +85,25 @@ void led_strip_init(void) {
     };
     esp_err_t err = rmt_new_tx_channel(&tx_chan_config, &led_chan);
     check_esp_error(err, "LED strip TX channel initialization");
+    
     led_strip_encoder_config_t encoder_config = {
         .resolution = RMT_LED_STRIP_RESOLUTION_HZ,
     };
     err = rmt_new_led_strip_encoder(&encoder_config, &led_encoder);
     check_esp_error(err, "LED strip encoder configuration");
+    
     err = rmt_enable(led_chan);
     check_esp_error(err, "LED strip channel enable");
 }
 
 void led_strip_start(void) {
     ESP_LOGI(TAG, "Starting LED strip");
-    uint32_t red, green, blue;
+    uint8_t red, green, blue;
     uint16_t hue = 0;
     rmt_transmit_config_t tx_config = {.loop_count = 0};
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
+    
     memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
+    
     for (int i = 0; i < LED_NUMBERS; i++) {
         hue = i * 360 / LED_NUMBERS;
         if (custom_color_mode) {
@@ -98,23 +113,27 @@ void led_strip_start(void) {
         } else {
             led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
         }
-        led_strip_pixels[i * 3 + 0] = green;
-        led_strip_pixels[i * 3 + 1] = blue;
-        led_strip_pixels[i * 3 + 2] = red;
+        set_pixel_color(&led_strip_pixels[i * 3], green, red, blue);
     }
+    
     esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
     check_esp_error(err, "LED strip start transmission");
+    
     err = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
     check_esp_error(err, "LED strip start wait");
 }
 
 void led_strip_stop(void) {
     ESP_LOGI(TAG, "Stopping LED strip");
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
-    memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
     rmt_transmit_config_t tx_config = {.loop_count = 0};
+    
+    for (int i = 0; i < LED_NUMBERS; i++) {
+        set_pixel_color(&led_strip_pixels[i * 3], 0, 0, 0);
+    }
+    
     esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
     check_esp_error(err, "LED strip stop transmission");
+    
     err = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
     check_esp_error(err, "LED strip stop wait");
 }
@@ -123,7 +142,7 @@ void led_strip_wave_effect(void) {
     if (effect_task_handle != NULL) {
         vTaskDelete(effect_task_handle);
     }
-    xTaskCreate(wave_effect_task, "wave_effect_task", 4096, NULL, 5, &effect_task_handle);
+    xTaskCreate(wave_effect_task, "wave_effect_task", 8192, NULL, 5, &effect_task_handle);
     ESP_LOGI(TAG, "Wave effect task started");
 }
 
@@ -131,7 +150,7 @@ void led_strip_stairs_effect(void) {
     if (effect_task_handle != NULL) {
         vTaskDelete(effect_task_handle);
     }
-    xTaskCreate(stairs_effect_task, "stairs_effect_task", 4096, NULL, 5, &effect_task_handle);
+    xTaskCreate(stairs_effect_task, "stairs_effect_task", 8192, NULL, 5, &effect_task_handle);
     ESP_LOGI(TAG, "Stairs effect task started");
 }
 
@@ -225,35 +244,18 @@ void led_strip_load_parameters(void) {
 }
 
 void led_strip_stairs_on(void) {
-    xTaskCreate(stairs_on_task, "stairs_on_task", 4096, NULL, 5, NULL);
+    xTaskCreate(stairs_on_task, "stairs_on_task", 8192, NULL, 5, NULL);
 }
 
 void led_strip_stairs_off(void) {
-    xTaskCreate(stairs_off_task, "stairs_off_task", 4096, NULL, 5, NULL);
-}
-
-void led_strip_motion_effect_1(void) {
-    if (effect_task_handle != NULL) {
-        vTaskDelete(effect_task_handle);
-    }
-    xTaskCreate(strip_motion_effect_1_task, "motion_effect_1_task", 4096, NULL, 5, &effect_task_handle);
-    ESP_LOGI(TAG, "Motion effect 1 task started");
-}
-
-void led_strip_motion_effect_2(void) {
-    if (effect_task_handle != NULL) {
-        vTaskDelete(effect_task_handle);
-    }
-    xTaskCreate(strip_motion_effect_2_task, "motion_effect_2_task", 4096, NULL, 5, &effect_task_handle);
-    ESP_LOGI(TAG, "Motion effect 2 task started");
+    xTaskCreate(stairs_off_task, "stairs_off_task", 8192, NULL, 5, NULL);
 }
 
 static void strip_motion_effect_1_task(void *arg) {
     ESP_LOGI(TAG, "Executing motion effect 1");
-    uint32_t red, green, blue;
+    uint8_t red, green, blue;
     uint16_t hue = 0;
     rmt_transmit_config_t tx_config = {.loop_count = 0};
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
 
     for (int j = LED_NUMBERS - 1; j >= 0; j--) {
         memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
@@ -266,9 +268,7 @@ static void strip_motion_effect_1_task(void *arg) {
             } else {
                 led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
             }
-            led_strip_pixels[i * 3 + 0] = green;
-            led_strip_pixels[i * 3 + 1] = red;
-            led_strip_pixels[i * 3 + 2] = blue;
+            set_pixel_color(&led_strip_pixels[i * 3], green, red, blue);
         }
         esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
         check_esp_error(err, "Motion effect 1 transmission");
@@ -280,10 +280,9 @@ static void strip_motion_effect_1_task(void *arg) {
     vTaskDelay(pdMS_TO_TICKS(DELAY_STAIRS_MS));
 
     for (int j = LED_NUMBERS - 1; j >= 0; j--) {
+        memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
         for (int i = LED_NUMBERS - 1; i > j; i--) {
-            led_strip_pixels[i * 3 + 0] = 0;
-            led_strip_pixels[i * 3 + 1] = 0;
-            led_strip_pixels[i * 3 + 2] = 0;
+            set_pixel_color(&led_strip_pixels[i * 3], 0, 0, 0);
         }
         esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
         check_esp_error(err, "Motion effect 1 clear");
@@ -293,19 +292,18 @@ static void strip_motion_effect_1_task(void *arg) {
     }
 
     memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
-    esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
-    check_esp_error(err, "Motion effect 1 final clear");
-    err = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
-    check_esp_error(err, "Motion effect 1 final clear wait");
+    esp_err_t err_final = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
+    check_esp_error(err_final, "Motion effect 1 final clear");
+    err_final = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
+    check_esp_error(err_final, "Motion effect 1 final clear wait");
     vTaskSuspend(NULL);
 }
 
 static void strip_motion_effect_2_task(void *arg) {
     ESP_LOGI(TAG, "Executing motion effect 2");
-    uint32_t red, green, blue;
+    uint8_t red, green, blue;
     uint16_t hue = 0;
     rmt_transmit_config_t tx_config = {.loop_count = 0};
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
 
     for (int j = 0; j < LED_NUMBERS; j++) {
         memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
@@ -318,9 +316,7 @@ static void strip_motion_effect_2_task(void *arg) {
             } else {
                 led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
             }
-            led_strip_pixels[i * 3 + 0] = green;
-            led_strip_pixels[i * 3 + 1] = red;
-            led_strip_pixels[i * 3 + 2] = blue;
+            set_pixel_color(&led_strip_pixels[i * 3], green, red, blue);
         }
         esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
         check_esp_error(err, "Motion effect 2 light up transmission");
@@ -332,10 +328,9 @@ static void strip_motion_effect_2_task(void *arg) {
     vTaskDelay(pdMS_TO_TICKS(DELAY_STAIRS_MS));
 
     for (int j = 0; j < LED_NUMBERS; j++) {
+        memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
         for (int i = 0; i <= j; i++) {
-            led_strip_pixels[i * 3 + 0] = 0;
-            led_strip_pixels[i * 3 + 1] = 0;
-            led_strip_pixels[i * 3 + 2] = 0;
+            set_pixel_color(&led_strip_pixels[i * 3], 0, 0, 0);
         }
         esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
         check_esp_error(err, "Motion effect 2 turn off transmission");
@@ -345,31 +340,48 @@ static void strip_motion_effect_2_task(void *arg) {
     }
 
     memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
-    esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
-    check_esp_error(err, "Motion effect 2 final clear");
-    err = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
-    check_esp_error(err, "Motion effect 2 final clear wait");
+    esp_err_t err_final = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
+    check_esp_error(err_final, "Motion effect 2 final clear");
+    err_final = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
+    check_esp_error(err_final, "Motion effect 2 final clear wait");
     vTaskSuspend(NULL);
+}
+
+void led_strip_motion_effect_1(void) {
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    xTaskCreate(strip_motion_effect_1_task, "motion_effect_1_task", 8192, NULL, 5, &effect_task_handle);
+    ESP_LOGI(TAG, "Motion effect 1 task started");
+}
+
+void led_strip_motion_effect_2(void) {
+    if (effect_task_handle != NULL) {
+        vTaskDelete(effect_task_handle);
+    }
+    xTaskCreate(strip_motion_effect_2_task, "motion_effect_2_task", 8192, NULL, 5, &effect_task_handle);
+    ESP_LOGI(TAG, "Motion effect 2 task started");
 }
 
 static void wave_effect_task(void *arg) {
     ESP_LOGI(TAG, "Running LED wave effect");
-    uint32_t red, green, blue;
+    uint8_t red, green, blue;
     uint16_t hue = 0;
     int16_t offset = 0;
     rmt_transmit_config_t tx_config = {.loop_count = 0};
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
     int group_size = 5;
-    const uint8_t min_brightness = led_brightness;
+    const uint8_t min_brightness = led_brightness / 2;
+
     while (true) {
+        memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
         for (int i = 0; i < LED_NUMBERS; i++) {
-            hue = ((i + offset) % LED_NUMBERS) * 360 / LED_NUMBERS;
-            uint8_t brightness = (sin((float)(i % group_size) / group_size * 2 * M_PI) + 1) * (led_brightness / 2.0);
-            brightness = brightness < min_brightness ? min_brightness : brightness;
-            led_strip_hsv2rgb(hue, 255, brightness, &red, &green, &blue);
-            led_strip_pixels[i * 3 + 0] = green;
-            led_strip_pixels[i * 3 + 1] = red;
-            led_strip_pixels[i * 3 + 2] = blue;
+            hue = (i + offset) % 360;
+            uint8_t saturation = 100;
+            float sine_val = sinf((float)(i % group_size) / group_size * 2 * M_PI);
+            uint8_t brightness = (uint8_t)((sine_val + 1.0f) * (led_brightness / 2.0f));
+            if (brightness < min_brightness) brightness = min_brightness;
+            led_strip_hsv2rgb(hue, saturation, brightness, &red, &green, &blue);
+            set_pixel_color(&led_strip_pixels[i * 3], green, red, blue);
         }
         esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
         check_esp_error(err, "Wave effect transmission");
@@ -377,15 +389,17 @@ static void wave_effect_task(void *arg) {
         check_esp_error(err, "Wave effect wait");
         vTaskDelay(pdMS_TO_TICKS(CHASE_SPEED_MS));
         offset += wave_direction;
+        if (offset >= 360) offset -= 360;
+        if (offset < 0) offset += 360;
     }
 }
 
 static void stairs_effect_task(void *arg) {
     ESP_LOGI(TAG, "Running LED stairs effect");
-    uint32_t red, green, blue;
+    uint8_t red, green, blue;
     uint16_t hue = 0;
     rmt_transmit_config_t tx_config = {.loop_count = 0};
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
+    
     while (true) {
         for (int j = 0; j < LED_NUMBERS; j++) {
             memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
@@ -398,16 +412,15 @@ static void stairs_effect_task(void *arg) {
                 } else {
                     led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
                 }
-                led_strip_pixels[i * 3 + 0] = green;
-                led_strip_pixels[i * 3 + 1] = red;
-                led_strip_pixels[i * 3 + 2] = blue;
+                set_pixel_color(&led_strip_pixels[i * 3], green, red, blue);
             }
             esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
             check_esp_error(err, "Stairs effect ascend transmission");
             err = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
             check_esp_error(err, "Stairs effect ascend wait");
-            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelay(pdMS_TO_TICKS(CHASE_SPEED_MS));
         }
+        
         for (int j = LED_NUMBERS - 1; j >= 0; j--) {
             memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
             for (int i = 0; i <= j; i++) {
@@ -419,25 +432,22 @@ static void stairs_effect_task(void *arg) {
                 } else {
                     led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
                 }
-                led_strip_pixels[i * 3 + 0] = green;
-                led_strip_pixels[i * 3 + 1] = red;
-                led_strip_pixels[i * 3 + 2] = blue;
+                set_pixel_color(&led_strip_pixels[i * 3], green, red, blue);
             }
             esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
             check_esp_error(err, "Stairs effect descend transmission");
             err = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
             check_esp_error(err, "Stairs effect descend wait");
-            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelay(pdMS_TO_TICKS(CHASE_SPEED_MS));
         }
     }
 }
 
 static void stairs_on_task(void *arg) {
-    uint32_t red, green, blue;
+    uint8_t red, green, blue;
     uint16_t hue = 0;
     rmt_transmit_config_t tx_config = {.loop_count = 0};
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
-    memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
+    
     for (int j = 0; j < LED_NUMBERS; j++) {
         if (custom_color_mode) {
             red = current_r * led_brightness / 100;
@@ -447,36 +457,23 @@ static void stairs_on_task(void *arg) {
             hue = j * 360 / LED_NUMBERS;
             led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
         }
-        led_strip_pixels[j * 3 + 0] = green;
-        led_strip_pixels[j * 3 + 1] = red;
-        led_strip_pixels[j * 3 + 2] = blue;
+        set_pixel_color(&led_strip_pixels[j * 3], green, red, blue);
         esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
         check_esp_error(err, "Stairs on transmission");
         err = rmt_tx_wait_all_done(led_chan, portMAX_DELAY);
         check_esp_error(err, "Stairs on wait");
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(CHASE_SPEED_MS));
     }
     vTaskDelete(NULL);
 }
 
 static void stairs_off_task(void *arg) {
     rmt_transmit_config_t tx_config = {.loop_count = 0};
-    uint8_t led_strip_pixels[LED_NUMBERS * 3];
+    
     for (int j = LED_NUMBERS - 1; j >= 0; j--) {
         memset(led_strip_pixels, 0, sizeof(led_strip_pixels));
         for (int i = 0; i <= j; i++) {
-            if (custom_color_mode) {
-                led_strip_pixels[i * 3 + 0] = current_g * led_brightness / 100;
-                led_strip_pixels[i * 3 + 1] = current_r * led_brightness / 100;
-                led_strip_pixels[i * 3 + 2] = current_b * led_brightness / 100;
-            } else {
-                uint32_t red, green, blue;
-                uint16_t hue = i * 360 / LED_NUMBERS;
-                led_strip_hsv2rgb(hue, 100, led_brightness, &red, &green, &blue);
-                led_strip_pixels[i * 3 + 0] = green;
-                led_strip_pixels[i * 3 + 1] = red;
-                led_strip_pixels[i * 3 + 2] = blue;
-            }
+            set_pixel_color(&led_strip_pixels[i * 3], 0, 0, 0);
         }
         esp_err_t err = rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config);
         check_esp_error(err, "Stairs off transmission");

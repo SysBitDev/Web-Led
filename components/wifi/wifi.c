@@ -41,7 +41,7 @@ static void smartconfig_example_task(void * parm); ///< Forward declaration for 
 /**
  * @brief Erases WiFi configuration from NVS.
  */
-static void erase_wifi_config() {
+void erase_wifi_config(void) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
     if (err == ESP_OK) {
@@ -49,9 +49,9 @@ static void erase_wifi_config() {
         nvs_erase_key(nvs_handle, "wifi_pass");
         nvs_commit(nvs_handle);
         nvs_close(nvs_handle);
-        ESP_LOGI(TAG, "WiFi credentials erased");
+        ESP_LOGI(TAG, "WiFi configuration erased");
     } else {
-        ESP_LOGE(TAG, "Error (%s) opening NVS handle!", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to open NVS handle: %s", esp_err_to_name(err));
     }
 }
 

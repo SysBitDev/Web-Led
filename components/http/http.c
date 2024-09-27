@@ -2,34 +2,236 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include "led.h"
+#include "wifi.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "esp_system.h"
+#include "mbedtls/base64.h" 
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
 
+#define BASIC_AUTH_USERNAME "admin"
+#define BASIC_AUTH_PASSWORD "password"
+
+static char *http_auth_basic(const char *username, const char *password) {
+    char *user_info = NULL;
+    char *digest = NULL;
+    size_t n = 0;
+    size_t out_len = 0;
+    int ret;
+
+    size_t user_info_len = strlen(username) + 1 + strlen(password) + 1;
+    user_info = malloc(user_info_len);
+    if (!user_info) {
+        ESP_LOGE(TAG, "Failed to allocate memory for user_info");
+        return NULL;
+    }
+    sprintf(user_info, "%s:%s", username, password);
+
+    ret = mbedtls_base64_encode(NULL, 0, &n, (const unsigned char *)user_info, strlen(user_info));
+    if (ret != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL) {
+        ESP_LOGE(TAG, "Failed to calculate base64 buffer size");
+        free(user_info);
+        return NULL;
+    }
+
+    digest = malloc(n + 1);
+    if (!digest) {
+        ESP_LOGE(TAG, "Failed to allocate memory for digest");
+        free(user_info);
+        return NULL;
+    }
+
+    ret = mbedtls_base64_encode((unsigned char *)digest, n, &out_len, (const unsigned char *)user_info, strlen(user_info));
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to encode base64");
+        free(user_info);
+        free(digest);
+        return NULL;
+    }
+    digest[out_len] = '\0';
+
+    free(user_info);
+    return digest;
+}
+
+static esp_err_t basic_auth_get_handler(httpd_req_t *req) {
+    char *buf = NULL;
+    size_t buf_len = 0;
+    char *auth_header = NULL;
+
+    buf_len = httpd_req_get_hdr_value_len(req, "Authorization") + 1;
+    if (buf_len > 1) {
+        buf = malloc(buf_len);
+        if (httpd_req_get_hdr_value_str(req, "Authorization", buf, buf_len) == ESP_OK) {
+            auth_header = buf;
+        }
+    }
+
+    if (!auth_header || strncmp(auth_header, "Basic ", 6) != 0) {
+        httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Login Required\"");
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+        if (buf) free(buf);
+        return ESP_FAIL;
+    } else {
+        char *auth_credentials = auth_header + 6;
+        char *expected_credentials = http_auth_basic(BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD);
+        if (!expected_credentials) {
+            if (buf) free(buf);
+            return ESP_FAIL;
+        }
+        if (strcmp(auth_credentials, expected_credentials) != 0) {
+            httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Login Required\"");
+            httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+            free(expected_credentials);
+            if (buf) free(buf);
+            return ESP_FAIL;
+        }
+        free(expected_credentials);
+    }
+    if (buf) free(buf);
+    return ESP_OK;
+}
+
 static esp_err_t root_get_handler(httpd_req_t *req) {
-    const char resp[] = "<html><head>"
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
+    const char resp[] = "<!DOCTYPE html>"
+                        "<html lang='en'>"
+                        "<head>"
+                        "<meta charset='UTF-8'>"
+                        "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
+                        "<title>LED Controller - Metro 2033</title>"
+                        "<link href='https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap' rel='stylesheet'>"
                         "<style>"
-                        "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f7; color: #1d1d1f; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }"
-                        "h1 { color: #1d1d1f; font-size: 2.5rem; margin-bottom: 30px; }"
-                        "button { padding: 15px 25px; font-size: 1rem; margin: 10px; border: none; background-color: #007aff; color: white; cursor: pointer; border-radius: 8px; transition: background-color 0.3s, box-shadow 0.3s; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }"
-                        "button:hover { background-color: #005fda; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); }"
-                        "input[type='range'], input[type='color'] { width: 300px; margin-top: 20px; }"
-                        ".container { text-align: center; background-color: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); }"
+                        "body {"
+                        "    font-family: 'Orbitron', sans-serif;"
+                        "    background-color: #1c1c1c;"
+                        "    color: #e0e0e0;"
+                        "    margin: 0;"
+                        "    padding: 0;"
+                        "    display: flex;"
+                        "    flex-direction: column;"
+                        "    align-items: center;"
+                        "    justify-content: center;"
+                        "    min-height: 100vh;"
+                        "}"
+                        ".container {"
+                        "    text-align: center;"
+                        "    background-color: rgba(28, 28, 28, 0.95);"
+                        "    padding: 40px;"
+                        "    border-radius: 12px;"
+                        "    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);"
+                        "    max-width: 800px;"
+                        "    width: 90%;"
+                        "}"
+                        "h1 {"
+                        "    color: #00ffcc;"
+                        "    font-size: 2.5rem;"
+                        "    margin-bottom: 30px;"
+                        "    text-shadow: 0 0 10px #00ffcc;"
+                        "}"
+                        ".button-group {"
+                        "    display: flex;"
+                        "    flex-wrap: wrap;"
+                        "    justify-content: center;"
+                        "    gap: 15px;"
+                        "    margin-bottom: 30px;"
+                        "}"
+                        "button {"
+                        "    padding: 15px 25px;"
+                        "    font-size: 1rem;"
+                        "    border: 2px solid #00ffcc;"
+                        "    background-color: #333333;"
+                        "    color: #00ffcc;"
+                        "    cursor: pointer;"
+                        "    border-radius: 8px;"
+                        "    transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s;"
+                        "    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);"
+                        "    flex: 1 1 200px;"
+                        "    max-width: 250px;"
+                        "}"
+                        "button:hover {"
+                        "    background-color: #00ffcc;"
+                        "    color: #1c1c1c;"
+                        "    box-shadow: 0 6px 12px rgba(0, 255, 204, 0.5);"
+                        "    transform: scale(1.05);"
+                        "}"
+                        ".controls {"
+                        "    display: flex;"
+                        "    flex-direction: column;"
+                        "    align-items: center;"
+                        "    gap: 20px;"
+                        "    margin-bottom: 30px;"
+                        "}"
+                        "input[type='range'], input[type='color'] {"
+                        "    width: 100%;"
+                        "    max-width: 300px;"
+                        "    padding: 5px;"
+                        "}"
+                        "input[type='range'] {"
+                        "    -webkit-appearance: none;"
+                        "    appearance: none;"
+                        "    height: 10px;"
+                        "    background: #444444;"
+                        "    border-radius: 5px;"
+                        "    outline: none;"
+                        "}"
+                        "input[type='range']::-webkit-slider-thumb {"
+                        "    -webkit-appearance: none;"
+                        "    appearance: none;"
+                        "    width: 20px;"
+                        "    height: 20px;"
+                        "    background: #00ffcc;"
+                        "    cursor: pointer;"
+                        "    border-radius: 50%;"
+                        "    box-shadow: 0 0 5px #00ffcc;"
+                        "}"
+                        "input[type='range']::-moz-range-thumb {"
+                        "    width: 20px;"
+                        "    height: 20px;"
+                        "    background: #00ffcc;"
+                        "    cursor: pointer;"
+                        "    border-radius: 50%;"
+                        "    box-shadow: 0 0 5px #00ffcc;"
+                        "}"
+                        ".info {"
+                        "    background-color: rgba(50, 50, 50, 0.8);"
+                        "    padding: 20px;"
+                        "    border-radius: 8px;"
+                        "    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);"
+                        "    font-family: 'Roboto Mono', monospace;"
+                        "    font-size: 0.9rem;"
+                        "    color: #00ffcc;"
+                        "}"
                         "</style>"
-                        "</head><body>"
+                        "</head>"
+                        "<body>"
                         "<div class='container'>"
                         "<h1>LED Controller</h1>"
-                        "<button onclick=\"sendRequest('/led-on')\">Turn On LED Strip</button><br><br>"
-                        "<button onclick=\"sendRequest('/led-off')\">Turn Off LED Strip</button><br><br>"
-                        "<button onclick=\"sendRequest('/wave-effect')\">Start Wave Effect</button><br><br>"
-                        "<button onclick=\"sendRequest('/stairs-effect')\">Start Stairs Effect</button><br><br>"
-                        "<button onclick=\"sendRequest('/toggle-wave-direction')\">Toggle Wave Direction</button><br><br>"
-                        "<input type='range' min='0' max='100' value='100' id='brightnessSlider' oninput='updateBrightness(this.value)'><br><br>"
-                        "<input type='color' id='colorPicker' onchange='updateColor(this.value)'><br><br>"
-                        "<button onclick=\"sendRequest('/reset-to-rgb')\">Reset to RGB Mode</button><br><br>"
-                        "<button onclick=\"sendRequest('/motion-detected-1')\">Motion Detected 1</button><br><br>"
-                        "<button onclick=\"sendRequest('/motion-detected-2')\">Motion Detected 2</button><br><br>"
-                        "<button onclick=\"saveParameters()\">Save Parameters</button><br><br>"
+                        "<div class='button-group'>"
+                        "    <button onclick=\"sendRequest('/led-on')\">Turn On LED Strip</button>"
+                        "    <button onclick=\"sendRequest('/led-off')\">Turn Off LED Strip</button>"
+                        "    <button onclick=\"sendRequest('/wave-effect')\">Start Wave Effect</button>"
+                        "    <button onclick=\"sendRequest('/stairs-effect')\">Start Stairs Effect</button>"
+                        "    <button onclick=\"sendRequest('/toggle-wave-direction')\">Toggle Wave Direction</button>"
+                        "    <button onclick=\"sendRequest('/reset-to-rgb')\">Reset to RGB Mode</button>"
+                        "    <button onclick=\"sendRequest('/motion-detected-1')\">Motion Detected 1</button>"
+                        "    <button onclick=\"sendRequest('/motion-detected-2')\">Motion Detected 2</button>"
+                        "    <button onclick=\"saveParameters()\">Save Parameters</button>"
+                        "    <button onclick=\"eraseNetworkData()\">Erase Network Data</button>"
+                        "</div>"
+                        "<div class='controls'>"
+                        "    <input type='range' min='0' max='100' value='100' id='brightnessSlider' oninput='updateBrightness(this.value)'>"
+                        "    <input type='color' id='colorPicker' onchange='updateColor(this.value)'>"
+                        "</div>"
+                        "<div class='info'>"
+                        "    <p>Adjust the brightness and color of your LED strip using the controls above.</p>"
+                        "    <p>Use the buttons to toggle effects and manage network settings.</p>"
+                        "</div>"
                         "<script>"
                         "function sendRequest(url) {"
                         "  var xhttp = new XMLHttpRequest();"
@@ -39,6 +241,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                         "    }"
                         "  };"
                         "  xhttp.open('GET', url, true);"
+                        "  xhttp.setRequestHeader('Authorization', 'Basic ' + btoa('" BASIC_AUTH_USERNAME ":" BASIC_AUTH_PASSWORD "'));"
                         "  xhttp.send();"
                         "}"
                         "function updateBrightness(value) {"
@@ -49,6 +252,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                         "    }"
                         "  };"
                         "  xhttp.open('GET', '/set-brightness?value=' + value, true);"
+                        "  xhttp.setRequestHeader('Authorization', 'Basic ' + btoa('" BASIC_AUTH_USERNAME ":" BASIC_AUTH_PASSWORD "'));"
                         "  xhttp.send();"
                         "}"
                         "function updateColor(value) {"
@@ -62,6 +266,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                         "    }"
                         "  };"
                         "  xhttp.open('GET', '/set-color?r=' + r + '&g=' + g + '&b=' + b, true);"
+                        "  xhttp.setRequestHeader('Authorization', 'Basic ' + btoa('" BASIC_AUTH_USERNAME ":" BASIC_AUTH_PASSWORD "'));"
                         "  xhttp.send();"
                         "}"
                         "function saveParameters() {"
@@ -73,7 +278,21 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                         "    }"
                         "  };"
                         "  xhttp.open('GET', '/save-parameters', true);"
+                        "  xhttp.setRequestHeader('Authorization', 'Basic ' + btoa('" BASIC_AUTH_USERNAME ":" BASIC_AUTH_PASSWORD "'));"
                         "  xhttp.send();"
+                        "}"
+                        "function eraseNetworkData() {"
+                        "  if (confirm('Are you sure you want to erase network data?')) {"
+                        "    var xhttp = new XMLHttpRequest();"
+                        "    xhttp.onreadystatechange = function() {"
+                        "      if (this.readyState == 4 && this.status == 200) {"
+                        "        alert(this.responseText);"
+                        "      }"
+                        "    };"
+                        "    xhttp.open('GET', '/erase-network-data', true);"
+                        "    xhttp.setRequestHeader('Authorization', 'Basic ' + btoa('" BASIC_AUTH_USERNAME ":" BASIC_AUTH_PASSWORD "'));"
+                        "    xhttp.send();"
+                        "  }"
                         "}"
                         "</script>"
                         "</div>"
@@ -82,13 +301,21 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+
+
 static esp_err_t led_on_handler(httpd_req_t *req) {
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     led_strip_start();
     httpd_resp_send(req, "LED Strip Turned On", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
 static esp_err_t led_off_handler(httpd_req_t *req) {
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     led_strip_stop_effect();
     led_strip_stop();
     httpd_resp_send(req, "LED Strip and Effects Turned Off", HTTPD_RESP_USE_STRLEN);
@@ -178,6 +405,16 @@ static esp_err_t save_parameters_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t erase_network_data_handler(httpd_req_t *req) {
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
+    erase_wifi_config();
+    httpd_resp_send(req, "Network data erased. Restarting...", HTTPD_RESP_USE_STRLEN);
+    esp_restart();
+    return ESP_OK;
+}
+
 static httpd_uri_t root = {
     .uri = "/",
     .method = HTTP_GET,
@@ -262,6 +499,13 @@ static httpd_uri_t save_parameters = {
     .user_ctx = NULL
 };
 
+static httpd_uri_t erase_network_data = {
+    .uri = "/erase-network-data",
+    .method = HTTP_GET,
+    .handler = erase_network_data_handler,
+    .user_ctx = NULL
+};
+
 void start_webserver(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 8192;
@@ -281,6 +525,7 @@ void start_webserver(void) {
         httpd_register_uri_handler(server, &motion_detected_1);
         httpd_register_uri_handler(server, &motion_detected_2);
         httpd_register_uri_handler(server, &save_parameters);
+        httpd_register_uri_handler(server, &erase_network_data);
     } else {
         ESP_LOGI(TAG, "Error starting server!");
     }

@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "led.c" "led_strip_encoder.c"
+    SRCS "led.c"
     INCLUDE_DIRS "include"
-    REQUIRES driver nvs_flash led_strip
+    REQUIRES driver nvs_flash led_strip esp_timer
 )

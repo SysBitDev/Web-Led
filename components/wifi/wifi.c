@@ -1,3 +1,5 @@
+// wifi.c
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -9,7 +11,7 @@
 #include "esp_event.h"
 #include "esp_wifi.h"
 #include "esp_smartconfig.h"
-#include "nvs_flash.h"
+#include "nvs.h" // Removed nvs_flash.h
 #include "esp_system.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"

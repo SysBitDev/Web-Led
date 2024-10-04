@@ -5,25 +5,56 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h" // Include semaphore for mutex
 #include "led_strip.h"
 
 static const char *TAG = "led_strip";
 
+// Define the mutex (extern in led.h)
+SemaphoreHandle_t led_mutex = NULL;
+
 static led_strip_handle_t led_strip;
 static TaskHandle_t effect_task_handle = NULL;
+
 static uint8_t brightness = 100;
 static uint16_t stairs_speed = 100;
 static uint16_t stairs_group_size = 1;
 static uint8_t color_r = 255, color_g = 255, color_b = 255;
 static bool custom_color_mode = false;
 static bool wave_direction = false;
+static uint16_t led_strip_length = 461;
 
+// Function Prototypes
+static void led_strip_effect_task(void *arg);
+static void led_strip_stairs_effect_task(void *arg);
+static void led_strip_stairs_off_task(void *arg);
+static void set_all_leds(uint8_t r, uint8_t g, uint8_t b);
+void led_strip_stop_effect(void); // Removed 'static'
+
+// Initialize LED Strip
 void led_strip_init(void) {
     ESP_LOGI(TAG, "Initializing LED strip");
 
+    // Initialize NVS
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    // Create the mutex if it hasn't been created yet
+    if (led_mutex == NULL) {
+        led_mutex = xSemaphoreCreateMutex();
+        if (led_mutex == NULL) {
+            ESP_LOGE(TAG, "Failed to create led_mutex");
+            return;
+        }
+    }
+
     led_strip_config_t strip_config = {
         .strip_gpio_num = LED_STRIP_GPIO,
-        .max_leds = LED_STRIP_LEN,
+        .max_leds = led_strip_length,
         .led_pixel_format = LED_PIXEL_FORMAT_GRB,
         .led_model = LED_MODEL_WS2812,
         .flags.invert_out = false,
@@ -35,13 +66,24 @@ void led_strip_init(void) {
         .flags.with_dma = false,
     };
 
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
+    esp_err_t err = led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create new RMT device: %s", esp_err_to_name(err));
+        return;
+    }
 
     led_strip_load_parameters();
+    set_all_leds(color_r, color_g, color_b);
 }
 
+// Set all LEDs to specified color with brightness adjustment
 static void set_all_leds(uint8_t r, uint8_t g, uint8_t b) {
-    for (int i = 0; i < LED_STRIP_LEN; i++) {
+    if (led_strip == NULL) {
+        ESP_LOGE(TAG, "LED strip not initialized");
+        return;
+    }
+
+    for (int i = 0; i < led_strip_length; i++) {
         uint8_t adj_r = (uint8_t)((r * brightness) / 100);
         uint8_t adj_g = (uint8_t)((g * brightness) / 100);
         uint8_t adj_b = (uint8_t)((b * brightness) / 100);
@@ -50,140 +92,259 @@ static void set_all_leds(uint8_t r, uint8_t g, uint8_t b) {
     ESP_ERROR_CHECK(led_strip_refresh(led_strip));
 }
 
+// Start displaying custom color
 void led_strip_start(void) {
-    custom_color_mode = true;
-    set_all_leds(color_r, color_g, color_b);
-}
-
-void led_strip_stop(void) {
-    custom_color_mode = false;
-    set_all_leds(0, 0, 0);
-}
-
-void led_strip_set_brightness(uint8_t new_brightness) {
-    brightness = new_brightness;
-    if (custom_color_mode) {
-        led_strip_start();
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        custom_color_mode = true;
+        set_all_leds(color_r, color_g, color_b);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in led_strip_start");
     }
 }
 
+// Stop displaying custom color (turn off LEDs)
+void led_strip_stop(void) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        custom_color_mode = false;
+        set_all_leds(0, 0, 0);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in led_strip_stop");
+    }
+}
+
+// Set brightness level
+void led_strip_set_brightness(uint8_t new_brightness) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        brightness = new_brightness;
+        if (custom_color_mode) {
+            set_all_leds(color_r, color_g, color_b);
+        }
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in set_brightness");
+    }
+}
+
+// Set length of LED strip and reinitialize
+void led_strip_set_length(uint16_t length) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        led_strip_length = length;
+        // Reinitialize LED strip with new length
+        if (led_strip != NULL) {
+            led_strip_clear(led_strip);
+            led_strip_stop();
+            led_strip_init();
+        }
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in set_length");
+    }
+}
+
+// Get length of LED strip
+uint16_t led_strip_get_length(void) {
+    return led_strip_length;
+}
+
+// Set color of LEDs
 void led_strip_set_color(uint8_t r, uint8_t g, uint8_t b) {
-    color_r = r;
-    color_g = g;
-    color_b = b;
-    custom_color_mode = true;
-    led_strip_start();
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        color_r = r;
+        color_g = g;
+        color_b = b;
+        custom_color_mode = true;
+        set_all_leds(color_r, color_g, color_b);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in set_color");
+    }
 }
 
+// Reset LEDs to default white color
 void led_strip_reset_to_rgb(void) {
-    custom_color_mode = false;
-    color_r = 255;
-    color_g = 255;
-    color_b = 255;
-    led_strip_start();
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        custom_color_mode = false;
+        color_r = 255;
+        color_g = 255;
+        color_b = 255;
+        set_all_leds(color_r, color_g, color_b);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in reset_to_rgb");
+    }
 }
 
+// Get current brightness
 uint8_t led_strip_get_brightness(void) {
     return brightness;
 }
 
+// Get stairs effect speed
 uint16_t led_strip_get_stairs_speed(void) {
     return stairs_speed;
 }
 
+// Set stairs effect speed
 void led_strip_set_stairs_speed(uint16_t speed) {
-    stairs_speed = speed;
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        stairs_speed = speed;
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in set_stairs_speed");
+    }
 }
 
+// Get stairs group size
 uint16_t led_strip_get_stairs_group_size(void) {
     return stairs_group_size;
 }
 
+// Set stairs group size
 void led_strip_set_stairs_group_size(uint16_t size) {
-    if (size < 1) {
-        stairs_group_size = 1;
-    } else if (size > LED_STRIP_LEN) {
-        stairs_group_size = LED_STRIP_LEN;
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        if (size < 1) {
+            stairs_group_size = 1;
+        } else if (size > led_strip_length) {
+            stairs_group_size = led_strip_length;
+        } else {
+            stairs_group_size = size;
+        }
+        xSemaphoreGive(led_mutex);
     } else {
-        stairs_group_size = size;
+        ESP_LOGE(TAG, "Failed to take led_mutex in set_stairs_group_size");
     }
 }
 
+// Get current color
 void led_strip_get_color(uint8_t *r, uint8_t *g, uint8_t *b) {
-    *r = color_r;
-    *g = color_g;
-    *b = color_b;
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        *r = color_r;
+        *g = color_g;
+        *b = color_b;
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in get_color");
+    }
 }
 
+// Check if custom color mode is active
 bool led_strip_get_custom_color_mode(void) {
     return custom_color_mode;
 }
 
+// Wave effect task
 static void led_strip_effect_task(void *arg) {
     const int delay_ms = 50;
     int pos = 0;
 
     while (1) {
-        ESP_ERROR_CHECK(led_strip_clear(led_strip));
+        if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+            if (led_strip == NULL) {
+                ESP_LOGE(TAG, "LED strip not initialized in effect task");
+                xSemaphoreGive(led_mutex);
+                vTaskDelete(NULL);
+                return;
+            }
 
-        int index = wave_direction ? (LED_STRIP_LEN - 1 - pos) : pos;
-        uint8_t adj_r = (uint8_t)((color_r * brightness) / 100);
-        uint8_t adj_g = (uint8_t)((color_g * brightness) / 100);
-        uint8_t adj_b = (uint8_t)((color_b * brightness) / 100);
+            ESP_ERROR_CHECK(led_strip_clear(led_strip));
 
-        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, index, adj_r, adj_g, adj_b));
-        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-
-        pos = (pos + 1) % LED_STRIP_LEN;
-        vTaskDelay(pdMS_TO_TICKS(delay_ms));
-    }
-}
-
-void led_strip_wave_effect(void) {
-    led_strip_stop_effect();
-    custom_color_mode = true;
-    xTaskCreate(led_strip_effect_task, "wave_effect", 2048, NULL, 5, &effect_task_handle);
-}
-
-void led_strip_toggle_wave_direction(void) {
-    wave_direction = !wave_direction;
-}
-
-void led_strip_stop_effect(void) {
-    if (effect_task_handle != NULL) {
-        vTaskDelete(effect_task_handle);
-        effect_task_handle = NULL;
-    }
-    led_strip_start();
-}
-
-static void led_strip_stairs_effect_task(void *arg) {
-    int steps = LED_STRIP_LEN;
-    int i = 0;
-
-    ESP_ERROR_CHECK(led_strip_clear(led_strip));
-
-    while (i < steps) {
-        for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
+            int index = wave_direction ? (led_strip_length - 1 - pos) : pos;
             uint8_t adj_r = (uint8_t)((color_r * brightness) / 100);
             uint8_t adj_g = (uint8_t)((color_g * brightness) / 100);
             uint8_t adj_b = (uint8_t)((color_b * brightness) / 100);
 
-            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, adj_r, adj_g, adj_b));
+            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, index, adj_r, adj_g, adj_b));
+            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+
+            pos = (pos + 1) % led_strip_length;
+            xSemaphoreGive(led_mutex);
+        } else {
+            ESP_LOGE(TAG, "Failed to take led_mutex in effect_task");
         }
-        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
+    }
+}
+
+// Start wave effect
+void led_strip_wave_effect(void) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        // Stop any existing effect
+        if (effect_task_handle != NULL) {
+            vTaskDelete(effect_task_handle);
+            effect_task_handle = NULL;
+        }
+
+        // Start new wave effect
+        custom_color_mode = true;
+        xTaskCreate(led_strip_effect_task, "wave_effect", 2048, NULL, 5, &effect_task_handle);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in wave_effect");
+    }
+}
+
+// Toggle wave direction
+void led_strip_toggle_wave_direction(void) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        wave_direction = !wave_direction;
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in toggle_wave_direction");
+    }
+}
+
+// Stairs effect task
+static void led_strip_stairs_effect_task(void *arg) {
+    int steps = led_strip_length;
+    int i = 0;
+
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    // Clear the strip before starting the stairs effect
+    ESP_ERROR_CHECK(led_strip_clear(led_strip));
+    xSemaphoreGive(led_mutex);
+
+    while (i < steps) {
+        if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+            for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
+                uint8_t adj_r = (uint8_t)((color_r * brightness) / 100);
+                uint8_t adj_g = (uint8_t)((color_g * brightness) / 100);
+                uint8_t adj_b = (uint8_t)((color_b * brightness) / 100);
+
+                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, adj_r, adj_g, adj_b));
+            }
+            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+            xSemaphoreGive(led_mutex);
+        } else {
+            ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during lighting up");
+        }
+
         i += stairs_group_size;
         vTaskDelay(pdMS_TO_TICKS(stairs_speed));
     }
 
+    // Wait before turning off
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     i = 0;
     while (i < steps) {
-        for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
-            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, 0, 0, 0));
+        if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+            for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
+                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, 0, 0, 0));
+            }
+            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+            xSemaphoreGive(led_mutex);
+        } else {
+            ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during turning off");
         }
-        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+
         i += stairs_group_size;
         vTaskDelay(pdMS_TO_TICKS(stairs_speed));
     }
@@ -192,75 +353,38 @@ static void led_strip_stairs_effect_task(void *arg) {
     vTaskDelete(NULL);
 }
 
-
-
-
+// Start stairs effect
 void led_strip_stairs_effect(void) {
-    led_strip_stop_effect();
-    custom_color_mode = true;
-    xTaskCreate(led_strip_stairs_effect_task, "stairs_effect", 2048, NULL, 5, &effect_task_handle);
-}
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        // Stop any existing effect
+        if (effect_task_handle != NULL) {
+            vTaskDelete(effect_task_handle);
+            effect_task_handle = NULL;
+        }
 
-void led_strip_motion_effect_1(void) {
-    led_strip_stairs_on();
-}
-
-void led_strip_motion_effect_2(void) {
-    led_strip_wave_effect();
-}
-
-void led_strip_save_parameters(void) {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
-    if (err == ESP_OK) {
-        nvs_set_u8(nvs_handle, "brightness", brightness);
-        nvs_set_u8(nvs_handle, "color_r", color_r);
-        nvs_set_u8(nvs_handle, "color_g", color_g);
-        nvs_set_u8(nvs_handle, "color_b", color_b);
-        nvs_set_u8(nvs_handle, "custom_color", custom_color_mode);
-        nvs_set_u16(nvs_handle, "stairs_speed", stairs_speed);
-        nvs_set_u16(nvs_handle, "stairs_group_size", stairs_group_size);
-        nvs_commit(nvs_handle);
-        nvs_close(nvs_handle);
-        ESP_LOGI(TAG, "Parameters saved");
+        // Start new stairs effect
+        custom_color_mode = true;
+        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect", 4096, NULL, 5, &effect_task_handle);
+        xSemaphoreGive(led_mutex);
     } else {
-        ESP_LOGE(TAG, "Error saving parameters");
+        ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect");
     }
 }
 
-void led_strip_load_parameters(void) {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open("storage", NVS_READONLY, &nvs_handle);
-    if (err == ESP_OK) {
-        uint8_t value = 0;
-        nvs_get_u8(nvs_handle, "brightness", &brightness);
-        nvs_get_u8(nvs_handle, "color_r", &color_r);
-        nvs_get_u8(nvs_handle, "color_g", &color_g);
-        nvs_get_u8(nvs_handle, "color_b", &color_b);
-        nvs_get_u8(nvs_handle, "custom_color", &value);
-        custom_color_mode = value;
-        nvs_get_u16(nvs_handle, "stairs_speed", &stairs_speed);
-        nvs_get_u16(nvs_handle, "stairs_group_size", &stairs_group_size);
-        nvs_close(nvs_handle);
-        ESP_LOGI(TAG, "Parameters loaded");
-    } else {
-        ESP_LOGE(TAG, "No parameters saved, using defaults");
-    }
-}
-
-void led_strip_stairs_on(void) {
-    led_strip_stop_effect();
-    custom_color_mode = true;
-    xTaskCreate(led_strip_stairs_effect_task, "stairs_on", 2048, NULL, 5, &effect_task_handle);
-}
-
+// Stairs off task to turn off LEDs with delay
 static void led_strip_stairs_off_task(void *arg) {
-    int steps = LED_STRIP_LEN;
+    int steps = led_strip_length;
     int delay_ms = 100;
 
     for (int i = steps - 1; i >= 0; i--) {
-        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 0, 0, 0));
-        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+        if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 0, 0, 0));
+            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+            xSemaphoreGive(led_mutex);
+        } else {
+            ESP_LOGE(TAG, "Failed to take led_mutex in stairs_off_task");
+        }
+
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
 
@@ -268,7 +392,94 @@ static void led_strip_stairs_off_task(void *arg) {
     vTaskDelete(NULL);
 }
 
+// Start stairs off effect
 void led_strip_stairs_off(void) {
-    led_strip_stop_effect();
-    xTaskCreate(led_strip_stairs_off_task, "stairs_off", 2048, NULL, 5, &effect_task_handle);
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        // Stop any existing effect
+        if (effect_task_handle != NULL) {
+            vTaskDelete(effect_task_handle);
+            effect_task_handle = NULL;
+        }
+
+        // Start stairs off task
+        xTaskCreate(led_strip_stairs_off_task, "stairs_off", 4096, NULL, 5, &effect_task_handle);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in stairs_off");
+    }
+}
+
+// Stop any active effect and turn off LEDs
+void led_strip_stop_effect(void) { // Removed 'static'
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        if (effect_task_handle != NULL) {
+            vTaskDelete(effect_task_handle);
+            effect_task_handle = NULL;
+        }
+        custom_color_mode = false;
+        set_all_leds(0, 0, 0);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in stop_effect");
+    }
+}
+
+// Save parameters to NVS
+void led_strip_save_parameters(void) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        nvs_handle_t nvs_handle;
+        esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
+        if (err == ESP_OK) {
+            nvs_set_u8(nvs_handle, "brightness", brightness);
+            nvs_set_u8(nvs_handle, "color_r", color_r);
+            nvs_set_u8(nvs_handle, "color_g", color_g);
+            nvs_set_u8(nvs_handle, "color_b", color_b);
+            nvs_set_u8(nvs_handle, "custom_color", custom_color_mode ? 1 : 0);
+            nvs_set_u16(nvs_handle, "stairs_speed", stairs_speed);
+            nvs_set_u16(nvs_handle, "stairs_group_size", stairs_group_size);
+            nvs_commit(nvs_handle);
+            nvs_close(nvs_handle);
+            ESP_LOGI(TAG, "Parameters saved");
+        } else {
+            ESP_LOGE(TAG, "Error saving parameters: %s", esp_err_to_name(err));
+        }
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in save_parameters");
+    }
+}
+
+// Load parameters from NVS
+void led_strip_load_parameters(void) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        nvs_handle_t nvs_handle;
+        esp_err_t err = nvs_open("storage", NVS_READONLY, &nvs_handle);
+        if (err == ESP_OK) {
+            uint8_t value = 0;
+            nvs_get_u8(nvs_handle, "brightness", &brightness);
+            nvs_get_u8(nvs_handle, "color_r", &color_r);
+            nvs_get_u8(nvs_handle, "color_g", &color_g);
+            nvs_get_u8(nvs_handle, "color_b", &color_b);
+            nvs_get_u8(nvs_handle, "custom_color", &value);
+            custom_color_mode = (value != 0);
+            nvs_get_u16(nvs_handle, "stairs_speed", &stairs_speed);
+            nvs_get_u16(nvs_handle, "stairs_group_size", &stairs_group_size);
+            nvs_close(nvs_handle);
+            ESP_LOGI(TAG, "Parameters loaded");
+        } else {
+            ESP_LOGE(TAG, "No parameters saved, using defaults");
+        }
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in load_parameters");
+    }
+}
+
+// Convenience functions for motion effects
+void led_strip_motion_effect_1(void) {
+    led_strip_stairs_effect();
+}
+
+void led_strip_motion_effect_2(void) {
+    led_strip_wave_effect();
 }

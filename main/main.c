@@ -32,7 +32,7 @@ void app_main(void) {
     led_strip_start();
 
     // Initialize Motion Sensor
-    motion_sensor_init();
+    // motion_sensor_init();
 
     // Initialize mDNS
     mdns_init();

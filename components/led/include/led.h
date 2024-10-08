@@ -27,5 +27,6 @@ void led_strip_stop_effect(void);
 void led_strip_stairs_effect(void);
 void led_strip_save_parameters(void);
 void led_strip_load_parameters(void);
+bool led_strip_is_effect_running(void);
 
 #endif // LED_H

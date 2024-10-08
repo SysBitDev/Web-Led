@@ -1,65 +1,85 @@
-// #include "motion.h"
-// #include "freertos/FreeRTOS.h"
-// #include "freertos/queue.h"
-// #include "freertos/task.h"
-// #include "esp_log.h"
-// #include "driver/gpio.h"
-// #include "led.h"
-// #include "sdkconfig.h"
+#include "motion.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "led.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 
-// static const char *TAG = "motion_sensor";
-// static QueueHandle_t motion_evt_queue = NULL;
-// static bool effect_running = false;
-// static TimerHandle_t motion_timer;
+static const char *TAG = "motion_sensor";
 
-// #define MOTION_SENSOR_GPIO CONFIG_MOTION_SENSOR_GPIO
-// #define MOTION_EFFECT_DURATION_MS 15000
-// #define TIMER_EXPIRED 0xFFFFFFFF
+#define MOTION_SENSOR_GPIO GPIO_NUM_19
 
-// void IRAM_ATTR motion_sensor_isr_handler(void* arg) {
-//     uint32_t gpio_num = (uint32_t) arg;
-//     xQueueSendFromISR(motion_evt_queue, &gpio_num, NULL);
-// }
+static void motion_sensor_isr_handler(void *arg);
+static void motion_task(void *arg);
+static SemaphoreHandle_t motion_semaphore = NULL;
+static TaskHandle_t motion_task_handle = NULL;
 
-// static void motion_timer_callback(TimerHandle_t xTimer) {
-//     uint32_t timer_expired = TIMER_EXPIRED;
-//     xQueueSend(motion_evt_queue, &timer_expired, 0);
-// }
+static uint32_t motion_delay_ms = 1000;
 
-// static void motion_sensor_task(void* arg) {
-//     uint32_t io_num;
-//     for(;;) {
-//         if(xQueueReceive(motion_evt_queue, &io_num, portMAX_DELAY)) {
-//             if (io_num == TIMER_EXPIRED) {
-//                 ESP_LOGI(TAG, "Motion timer expired");
-//                 led_strip_stairs_off();
-//                 effect_running = false;
-//             } else {
-//                 ESP_LOGI(TAG, "Motion detected on GPIO %" PRIu32, io_num);
-//                 if (!effect_running) {
-//                     led_strip_stairs_on();
-//                     xTimerStart(motion_timer, 0);
-//                     effect_running = true;
-//                 } else {
-//                     xTimerReset(motion_timer, 0);
-//                 }
-//             }
-//         }
-//     }
-// }
+void motion_init(void) {
+    gpio_config_t io_conf = {
+        .intr_type = GPIO_INTR_POSEDGE,
+        .mode = GPIO_MODE_INPUT,
+        .pin_bit_mask = (1ULL << MOTION_SENSOR_GPIO),
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .pull_up_en = GPIO_PULLUP_DISABLE
+    };
+    gpio_config(&io_conf);
 
-// void motion_sensor_init(void) {
-//     motion_evt_queue = xQueueCreate(10, sizeof(uint32_t));
-//     gpio_config_t io_conf = {
-//         .intr_type = GPIO_INTR_POSEDGE,
-//         .mode = GPIO_MODE_INPUT,
-//         .pin_bit_mask = (1ULL << MOTION_SENSOR_GPIO),
-//         .pull_down_en = 0,
-//         .pull_up_en = 1,
-//     };
-//     gpio_config(&io_conf);
-//     gpio_install_isr_service(0);
-//     gpio_isr_handler_add(MOTION_SENSOR_GPIO, motion_sensor_isr_handler, (void*) MOTION_SENSOR_GPIO);
-//     motion_timer = xTimerCreate("motion_timer", pdMS_TO_TICKS(MOTION_EFFECT_DURATION_MS), pdFALSE, (void*) 0, motion_timer_callback);
-//     xTaskCreate(motion_sensor_task, "motion_sensor_task", 2048, NULL, 10, NULL);
-// }
+    if (motion_semaphore == NULL) {
+        motion_semaphore = xSemaphoreCreateBinary();
+    }
+
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(MOTION_SENSOR_GPIO, motion_sensor_isr_handler, NULL);
+}
+
+static void IRAM_ATTR motion_sensor_isr_handler(void *arg) {
+    gpio_intr_disable(MOTION_SENSOR_GPIO);
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    xSemaphoreGiveFromISR(motion_semaphore, &xHigherPriorityTaskWoken);
+    if (xHigherPriorityTaskWoken) {
+        portYIELD_FROM_ISR();
+    }
+}
+
+
+void motion_start(void) {
+    if (motion_task_handle == NULL) {
+        xTaskCreate(motion_task, "motion_task", 4096, NULL, 5, &motion_task_handle);
+    }
+}
+
+void motion_stop(void) {
+    if (motion_task_handle != NULL) {
+        vTaskDelete(motion_task_handle);
+        motion_task_handle = NULL;
+    }
+}
+
+static void motion_task(void *arg) {
+    while (1) {
+        if (xSemaphoreTake(motion_semaphore, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGI(TAG, "Motion detected!");
+
+            if (!led_strip_is_effect_running()) {
+                led_strip_stairs_effect();
+            } else {
+                ESP_LOGI(TAG, "The effect is already underway, we are waiting for completion");
+            }
+            while (led_strip_is_effect_running()) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
+            gpio_intr_enable(MOTION_SENSOR_GPIO);
+        }
+    }
+}
+
+
+uint32_t motion_get_delay(void) {
+    return motion_delay_ms;
+}
+
+void motion_set_delay(uint32_t delay_ms) {
+    motion_delay_ms = delay_ms;
+}

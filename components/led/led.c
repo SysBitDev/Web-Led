@@ -22,6 +22,8 @@ static uint8_t color_r = 255, color_g = 255, color_b = 255;
 static bool custom_color_mode = false;
 static bool wave_direction = false;
 static uint16_t led_strip_length = 470;
+static bool effect_running = false;
+
 
 extern SemaphoreHandle_t led_mutex;
 
@@ -136,6 +138,10 @@ void led_strip_set_length(uint16_t length) {
 
 uint16_t led_strip_get_length(void) {
     return led_strip_length;
+}
+
+bool led_strip_is_effect_running(void) {
+    return effect_running;
 }
 
 void led_strip_set_color(uint8_t r, uint8_t g, uint8_t b) {
@@ -326,6 +332,7 @@ static void led_strip_stairs_effect_task(void *arg) {
         custom_color_mode = false;
         set_all_leds(0, 0, 0);
         effect_task_handle = NULL;
+        effect_running = false;
         xSemaphoreGive(led_mutex);
     }
 
@@ -340,6 +347,8 @@ void led_strip_stairs_effect(void) {
         }
 
         custom_color_mode = true;
+        effect_running = true;
+
         xTaskCreate(led_strip_stairs_effect_task, "stairs_effect", 4096, NULL, 5, &effect_task_handle);
         xSemaphoreGive(led_mutex);
     } else {

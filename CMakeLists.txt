@@ -15,5 +15,5 @@ list(APPEND EXTRA_COMPONENT_DIRS ${PROJECT_DIR}/components)
 
 set(EXTRA_COMPONENT_DIRS ${CMAKE_SOURCE_DIR}/components)
 
-set(EXTRA_COMPONENT_DIRS "components/http" "components/led" "components/wifi")
+set(EXTRA_COMPONENT_DIRS "components/http" "components/led" "components/wifi" "components/motion" "components/time_sun")
 

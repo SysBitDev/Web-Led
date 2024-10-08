@@ -7,6 +7,7 @@
 #include "led.h"
 #include "motion.h"
 #include "mdns.h"
+#include "time_sun.h"
 
 void app_main(void) {
     esp_err_t ret = nvs_flash_init();
@@ -17,6 +18,9 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
 
     wifi_init();
+
+    time_sun_init();
+    time_sun_display();
 
     led_strip_init();
 

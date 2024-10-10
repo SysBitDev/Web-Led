@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>LED Controller</title>
+    <link href='https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap' rel='stylesheet'>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class='container'>
+        <h1>LED Controller</h1>
+        <div class='button-group'>
+            <button onclick="sendRequest('/led-on')">Turn On LED Strip</button>
+            <button onclick="sendRequest('/led-off')">Turn Off LED Strip</button>
+            <button onclick="sendRequest('/wave-effect')">Start Wave Effect</button>
+            <button onclick="sendRequest('/stairs-effect')">Start Stairs Effect</button>
+            <button onclick="sendRequest('/toggle-wave-direction')">Toggle Wave Direction</button>
+            <button onclick="sendRequest('/reset-to-rgb')">Reset to RGB Mode</button>
+            <button onclick="saveParameters()">Save Parameters</button>
+            <button onclick="eraseNetworkData()">Erase Network Data</button>
+            <button onclick="restartBoard()">Restart Board</button>
+        </div>
+        <div class='controls'>
+            <div class='control-row'>
+                <div class='control-group'>
+                    <label for='brightnessSlider'>Brightness: <input type='number' id='brightnessInput' min='0' max='100' value='0' onchange='updateBrightnessInput(this.value)'></label>
+                    <input type='range' min='1' max='100' value='0' id='brightnessSlider' oninput='updateBrightness(this.value)'>
+                </div>
+                <div class='control-group'>
+                    <label for='stairsSpeedSlider'>Stairs Effect Speed (ms): <input type='number' id='stairsSpeedInput' min='10' max='1000' value='10' onchange='updateStairsSpeedInput(this.value)'></label>
+                    <input type='range' min='10' max='100' value='10' id='stairsSpeedSlider' oninput='updateStairsSpeed(this.value)'>
+                </div>
+                <div class='control-group'>
+                    <label for='ledCountSlider'>Number of LEDs: <input type='number' id='ledCountInput' min='1' max='1000' value='460' onchange='updateLedCountInput(this.value)'></label>
+                    <input type='range' min='1' max='1000' value='460' id='ledCountSlider' oninput='updateLedCount(this.value)'>
+                </div>
+            </div>
+            <div class='control-group'>
+                <label for='colorPicker'>Color:</label>
+                <input type='color' id='colorPicker' value='#000000' onchange='updateColor(this.value)'>
+            </div>
+            <div class='control-group'>
+                <label>Stairs Effect Group Size:</label>
+                <div class='group-buttons'>
+                    <button onclick='updateStairsGroupSize(1)'>1</button>
+                    <button onclick='updateStairsGroupSize(2)'>2</button>
+                    <button onclick='updateStairsGroupSize(3)'>3</button>
+                    <button onclick='updateStairsGroupSize(4)'>4</button>
+                    <button onclick='updateStairsGroupSize(5)'>5</button>
+                </div>
+            </div>
+        </div>
+        <div class='info'>
+            <p>Adjust the brightness, color, and speed of your LED strip using the controls above.</p>
+            <p>Use the buttons to toggle effects and manage network settings.</p>
+        </div>
+    </div>
+    <script src="/script.js"></script>
+</body>
+</html>

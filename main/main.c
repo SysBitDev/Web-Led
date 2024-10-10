@@ -19,6 +19,8 @@ void app_main(void) {
 
     wifi_init();
 
+    init_spiffs();
+    
     time_sun_init();
     time_sun_display();
 
@@ -34,7 +36,7 @@ void app_main(void) {
     mdns_init();
     mdns_hostname_set("smart-stairs");
     mdns_instance_name_set("Smart Stairs");
-
+    
     start_webserver();
 }
 

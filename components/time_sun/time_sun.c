@@ -162,18 +162,50 @@ void time_sun_display(void)
     char sunset_str[64];
     get_sunrise_sunset_times(sunrise_str, sizeof(sunrise_str), sunset_str, sizeof(sunset_str));
 
+    cJSON *json = cJSON_Parse(response_buffer);
+    if (json == NULL) {
+        ESP_LOGE(TAG, "JSON parsing failed");
+        return;
+    }
+
+    cJSON *results = cJSON_GetObjectItem(json, "results");
+    if (results == NULL) {
+        ESP_LOGE(TAG, "No 'results' field in JSON");
+        cJSON_Delete(json);
+        return;
+    }
+
+    cJSON *date_json = cJSON_GetObjectItem(results, "date");
+    if (!cJSON_IsString(date_json) || date_json->valuestring == NULL) {
+        ESP_LOGE(TAG, "Invalid date format in JSON");
+        cJSON_Delete(json);
+        return;
+    }
+    char date_str[32];
+    strncpy(date_str, date_json->valuestring, sizeof(date_str));
+
+    char sunrise_datetime_str[96];
+    snprintf(sunrise_datetime_str, sizeof(sunrise_datetime_str), "%s %s", date_str, sunrise_str);
+
+    char sunset_datetime_str[96];
+    snprintf(sunset_datetime_str, sizeof(sunset_datetime_str), "%s %s", date_str, sunset_str);
+
     struct tm sunrise_tm = {0};
     struct tm sunset_tm = {0};
     char *result;
 
-    result = strptime(sunrise_str, "%Y-%m-%dT%H:%M:%S%z", &sunrise_tm);
+    result = strptime(sunrise_datetime_str, "%Y-%m-%d %I:%M:%S %p", &sunrise_tm);
     if (result == NULL) {
         ESP_LOGE(TAG, "Failed to parse sunrise time");
+    } else {
+        ESP_LOGI(TAG, "Parsed sunrise time successfully");
     }
 
-    result = strptime(sunset_str, "%Y-%m-%dT%H:%M:%S%z", &sunset_tm);
+    result = strptime(sunset_datetime_str, "%Y-%m-%d %I:%M:%S %p", &sunset_tm);
     if (result == NULL) {
         ESP_LOGE(TAG, "Failed to parse sunset time");
+    } else {
+        ESP_LOGI(TAG, "Parsed sunset time successfully");
     }
 
     time_t sunrise_time = mktime(&sunrise_tm);
@@ -189,4 +221,7 @@ void time_sun_display(void)
     } else {
         ESP_LOGI(TAG, "Sun has already set today.");
     }
+
+    cJSON_Delete(json);
 }
+

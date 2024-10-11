@@ -10,6 +10,8 @@ body {
     justify-content: center;
     min-height: 100vh;
 }
+
+
 .container {
     text-align: center;
     background-color: rgba(28, 28, 28, 0.95);

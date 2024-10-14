@@ -63,8 +63,8 @@ static void motion_task(void *arg) {
         if (xSemaphoreTake(motion_semaphore, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Motion detected!");
 
-            if (!is_night_time) {
-                ESP_LOGI(TAG, "It's daytime. Not turning on LEDs.");
+            if (!is_night_time && !ignore_sun) {
+                ESP_LOGI(TAG, "It's daytime and sun is not ignored. Not turning on LEDs.");
                 gpio_intr_enable(MOTION_SENSOR_GPIO);
                 continue;
             }

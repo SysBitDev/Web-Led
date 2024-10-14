@@ -11,6 +11,7 @@
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 #include "dirent.h"
+#include "time_sun.h"
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
@@ -113,8 +114,6 @@ static esp_err_t spiffs_get_handler(httpd_req_t *req) {
     free(file_buf);
     return ret;
 }
-
-
 
 static esp_err_t led_on_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
@@ -472,6 +471,23 @@ static esp_err_t restart_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t toggle_ignore_sun_handler(httpd_req_t *req) {
+    ignore_sun = !ignore_sun;
+    const char* resp_str = ignore_sun ? "Sun is now ignored." : "Sun is now considered.";
+    char resp_json[128];
+    snprintf(resp_json, sizeof(resp_json), "{\"ignore_sun\":%s,\"message\":\"%s\"}", ignore_sun ? "true" : "false", resp_str);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, resp_json, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static httpd_uri_t toggle_ignore_sun_uri = {
+    .uri      = "/toggle-ignore-sun",
+    .method   = HTTP_GET,
+    .handler  = toggle_ignore_sun_handler,
+    .user_ctx = NULL
+};
+
 static httpd_uri_t favicon = {
     .uri = "/favicon.ico",
     .method = HTTP_GET,
@@ -659,6 +675,7 @@ void start_webserver(void) {
         httpd_register_uri_handler(server, &get_settings);
         httpd_register_uri_handler(server, &restart);
         httpd_register_uri_handler(server, &favicon);
+        httpd_register_uri_handler(server, &toggle_ignore_sun_uri);
 
 
         static httpd_uri_t spiffs_uri = {

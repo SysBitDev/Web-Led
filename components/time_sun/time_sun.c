@@ -21,6 +21,7 @@ static size_t response_len = 0;
 time_t sunrise_time = 0;
 time_t sunset_time = 0;
 bool volatile is_night_time = false;
+bool volatile ignore_sun = false;
 
 SemaphoreHandle_t is_night_time_mutex;
 

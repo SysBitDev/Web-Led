@@ -4,6 +4,7 @@
 #include "led.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "time_sun.h"
 
 static const char *TAG = "motion_sensor";
 
@@ -61,6 +62,12 @@ static void motion_task(void *arg) {
     while (1) {
         if (xSemaphoreTake(motion_semaphore, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Motion detected!");
+
+            if (!is_night_time) {
+                ESP_LOGI(TAG, "It's daytime. Not turning on LEDs.");
+                gpio_intr_enable(MOTION_SENSOR_GPIO);
+                continue;
+            }
 
             if (!led_strip_is_effect_running()) {
                 led_strip_stairs_effect();

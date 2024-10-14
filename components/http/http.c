@@ -10,6 +10,7 @@
 #include "freertos/semphr.h"
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
+#include "dirent.h"
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
@@ -62,7 +63,11 @@ static esp_err_t spiffs_get_handler(httpd_req_t *req) {
 
     ESP_LOGI(TAG, "Requested file: %s", filepath);
 
-    FILE* file = fopen(filepath, "r");
+    const char *mode = "r";
+    if (strstr(filepath, ".ico")) {
+        mode = "rb";
+    }
+    FILE* file = fopen(filepath, mode);
     if (!file) {
         ESP_LOGE(TAG, "Failed to open file : %s", filepath);
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
@@ -99,6 +104,8 @@ static esp_err_t spiffs_get_handler(httpd_req_t *req) {
         mime_type = "image/gif";
     } else if (strstr(filepath, ".svg")) {
         mime_type = "image/svg+xml";
+    } else if (strstr(filepath, ".ico")) {
+        mime_type = "image/x-icon";
     }
 
     httpd_resp_set_type(req, mime_type);
@@ -106,6 +113,7 @@ static esp_err_t spiffs_get_handler(httpd_req_t *req) {
     free(file_buf);
     return ret;
 }
+
 
 
 static esp_err_t led_on_handler(httpd_req_t *req) {
@@ -415,6 +423,45 @@ static esp_err_t get_settings_handler(httpd_req_t *req) {
     }
 }
 
+static esp_err_t favicon_get_handler(httpd_req_t *req) {
+    const char *filepath = "/spiffs/favicon.ico";
+
+    FILE* file = fopen(filepath, "rb");
+    if (!file) {
+        ESP_LOGE(TAG, "Failed to open favicon: %s", filepath);
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
+        return ESP_FAIL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    size_t file_size = ftell(file);
+    rewind(file);
+
+    char* file_buf = malloc(file_size);
+    if (!file_buf) {
+        fclose(file);
+        ESP_LOGE(TAG, "Failed to allocate memory for favicon");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory");
+        return ESP_FAIL;
+    }
+
+    size_t read_size = fread(file_buf, 1, file_size, file);
+    fclose(file);
+
+    if (read_size != file_size) {
+        ESP_LOGE(TAG, "Failed to read favicon file");
+        free(file_buf);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read file");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "image/x-icon");
+    esp_err_t ret = httpd_resp_send(req, file_buf, file_size);
+    free(file_buf);
+    ESP_LOGI(TAG, "Sent favicon.ico");
+    return ret;
+}
+
 static esp_err_t restart_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
         return ESP_FAIL;
@@ -424,6 +471,13 @@ static esp_err_t restart_handler(httpd_req_t *req) {
     esp_restart();
     return ESP_OK;
 }
+
+static httpd_uri_t favicon = {
+    .uri = "/favicon.ico",
+    .method = HTTP_GET,
+    .handler = favicon_get_handler,
+    .user_ctx = NULL
+};
 
 static httpd_uri_t led_on = {
     .uri = "/led-on",
@@ -530,7 +584,6 @@ static httpd_uri_t restart = {
     .user_ctx = NULL
 };
 
-
 void init_spiffs(void) {
     ESP_LOGI(TAG, "Initializing SPIFFS");
     esp_vfs_spiffs_conf_t conf = {
@@ -571,7 +624,6 @@ void init_spiffs(void) {
     }
 }
 
-
 void start_webserver(void) {
     static bool led_initialized = false;
     if (!led_initialized) {
@@ -606,6 +658,8 @@ void start_webserver(void) {
         httpd_register_uri_handler(server, &set_led_count);
         httpd_register_uri_handler(server, &get_settings);
         httpd_register_uri_handler(server, &restart);
+        httpd_register_uri_handler(server, &favicon);
+
 
         static httpd_uri_t spiffs_uri = {
             .uri = "/*",

@@ -145,6 +145,8 @@ void time_sun_init(void)
     tzset();
 
     obtain_time();
+
+    time_sun_display();
 }
 
 void time_sun_display(void)

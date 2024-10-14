@@ -10,6 +10,7 @@
 #include "freertos/semphr.h"
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
+#include "time_sun.h"
 
 static const char *TAG = "http_server";
 static httpd_handle_t server = NULL;
@@ -425,6 +426,62 @@ static esp_err_t restart_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t get_sun_times_handler(httpd_req_t *req)
+{
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
+
+    char sun_times_json[128];
+    get_sun_times_json(sun_times_json, sizeof(sun_times_json));
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, sun_times_json, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t set_region_handler(httpd_req_t *req)
+{
+    if (basic_auth_get_handler(req) != ESP_OK)
+    {
+        return ESP_FAIL;
+    }
+
+    char buf[128];
+    char region_param[64] = {0};
+    char timezone_param[64] = {0};
+
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
+    {
+        httpd_query_key_value(buf, "region", region_param, sizeof(region_param));
+        httpd_query_key_value(buf, "timezone", timezone_param, sizeof(timezone_param));
+
+        if (strlen(region_param) > 0 && strlen(timezone_param) > 0)
+        {
+            set_current_region(region_param, timezone_param);
+            httpd_resp_send(req, "Регіон встановлено", HTTPD_RESP_USE_STRLEN);
+            return ESP_OK;
+        }
+    }
+
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Неправильні параметри");
+    return ESP_FAIL;
+}
+
+static httpd_uri_t get_time = {
+    .uri = "/get-time",
+    .method = HTTP_GET,
+    .handler = get_sun_times_handler,
+    .user_ctx = NULL
+};
+
+static httpd_uri_t get_regions = {
+    .uri = "/get-regions",
+    .method = HTTP_GET,
+    .handler = set_region_handler,
+    .user_ctx = NULL
+};
+
 static httpd_uri_t led_on = {
     .uri = "/led-on",
     .method = HTTP_GET,
@@ -586,7 +643,7 @@ void start_webserver(void) {
     }
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 40960;
-    config.max_uri_handlers = 24;
+    config.max_uri_handlers = 25;
     config.server_port = 80;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
@@ -606,6 +663,9 @@ void start_webserver(void) {
         httpd_register_uri_handler(server, &set_led_count);
         httpd_register_uri_handler(server, &get_settings);
         httpd_register_uri_handler(server, &restart);
+        httpd_register_uri_handler(server, &get_regions);
+        httpd_register_uri_handler(server, &get_time);
+
 
         static httpd_uri_t spiffs_uri = {
             .uri = "/*",

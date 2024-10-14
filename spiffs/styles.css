@@ -185,3 +185,19 @@ input[type='color']::-webkit-color-swatch {
     color: #00ffcc;
     margin-left: 10px;
 }
+select {
+    padding: 10px;
+    font-size: 1rem;
+    border: 2px solid #00ffcc;
+    background-color: #333333;
+    color: #00ffcc;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    transition: background-color 0.3s, box-shadow 0.3s;
+}
+select:hover {
+    background-color: #00ffcc;
+    color: #1c1c1c;
+    box-shadow: 0 0 10px #00ffcc;
+}

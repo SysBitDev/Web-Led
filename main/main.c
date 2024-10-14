@@ -20,9 +20,8 @@ void app_main(void) {
     wifi_init();
 
     init_spiffs();
-    
+
     time_sun_init();
-    time_sun_display();
 
     led_strip_init();
 

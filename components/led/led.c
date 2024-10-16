@@ -24,8 +24,11 @@ static bool wave_direction = false;
 static uint16_t led_strip_length = 470;
 static bool effect_running = false;
 
-
-extern SemaphoreHandle_t led_mutex;
+typedef enum {
+    EFFECT_DIRECTION_START = 0,
+    EFFECT_DIRECTION_END,
+    EFFECT_DIRECTION_BOTH
+} effect_direction_t;
 
 static void led_strip_effect_task(void *arg);
 static void led_strip_stairs_effect_task(void *arg);
@@ -73,7 +76,6 @@ void led_strip_init(void) {
     led_strip_load_parameters();
     set_all_leds(color_r, color_g, color_b);
 }
-
 
 static void set_all_leds(uint8_t r, uint8_t g, uint8_t b) {
     if (led_strip == NULL) {
@@ -279,11 +281,16 @@ void led_strip_toggle_wave_direction(void) {
 }
 
 static void led_strip_stairs_effect_task(void *arg) {
+    effect_direction_t direction = (effect_direction_t)arg;
     int steps = led_strip_length;
-    int i = 0;
+
+    uint8_t adj_r = (uint8_t)((color_r * brightness) / 100);
+    uint8_t adj_g = (uint8_t)((color_g * brightness) / 100);
+    uint8_t adj_b = (uint8_t)((color_b * brightness) / 100);
 
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) != pdTRUE) {
         ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task");
+        effect_running = false;
         vTaskDelete(NULL);
         return;
     }
@@ -291,41 +298,126 @@ static void led_strip_stairs_effect_task(void *arg) {
     ESP_ERROR_CHECK(led_strip_clear(led_strip));
     xSemaphoreGive(led_mutex);
 
-    while (i < steps) {
-        if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
-            for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
-                uint8_t adj_r = (uint8_t)((color_r * brightness) / 100);
-                uint8_t adj_g = (uint8_t)((color_g * brightness) / 100);
-                uint8_t adj_b = (uint8_t)((color_b * brightness) / 100);
-
-                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, adj_r, adj_g, adj_b));
+    switch (direction) {
+        case EFFECT_DIRECTION_START:
+            for (int i = 0; i < steps; i += stairs_group_size) {
+                if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+                    for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
+                        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, adj_r, adj_g, adj_b));
+                    }
+                    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                    xSemaphoreGive(led_mutex);
+                } else {
+                    ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during lighting up");
+                }
+                vTaskDelay(pdMS_TO_TICKS(stairs_speed));
             }
-            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-            xSemaphoreGive(led_mutex);
-        } else {
-            ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during lighting up");
-        }
+            break;
 
-        i += stairs_group_size;
-        vTaskDelay(pdMS_TO_TICKS(stairs_speed));
+        case EFFECT_DIRECTION_END:
+            for (int i = steps - 1; i >= 0; i -= stairs_group_size) {
+                if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+                    for (int j = 0; j < stairs_group_size && (i - j) >= 0; j++) {
+                        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i - j, adj_r, adj_g, adj_b));
+                    }
+                    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                    xSemaphoreGive(led_mutex);
+                } else {
+                    ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during lighting up");
+                }
+                vTaskDelay(pdMS_TO_TICKS(stairs_speed));
+            }
+            break;
+
+        case EFFECT_DIRECTION_BOTH:
+            {
+                int start = 0;
+                int end = steps - 1;
+
+                while (start <= end) {
+                    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+                        for (int j = 0; j < stairs_group_size; j++) {
+                            if ((start + j) <= end) {
+                                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, start + j, adj_r, adj_g, adj_b));
+                            }
+                            if ((end - j) >= start) {
+                                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, end - j, adj_r, adj_g, adj_b));
+                            }
+                        }
+                        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                        xSemaphoreGive(led_mutex);
+                    } else {
+                        ESP_LOGE(TAG, "Failed to take led_mutex in converging effect");
+                    }
+
+                    start += stairs_group_size;
+                    end -= stairs_group_size;
+                    vTaskDelay(pdMS_TO_TICKS(stairs_speed));
+                }
+            }
+            break;
     }
 
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    i = 0;
-    while (i < steps) {
-        if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
-            for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
-                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, 0, 0, 0));
+    switch (direction) {
+        case EFFECT_DIRECTION_START:
+            for (int i = steps - 1; i >= 0; i -= stairs_group_size) {
+                if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+                    for (int j = 0; j < stairs_group_size && (i - j) >= 0; j++) {
+                        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i - j, 0, 0, 0));
+                    }
+                    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                    xSemaphoreGive(led_mutex);
+                } else {
+                    ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during turning off");
+                }
+                vTaskDelay(pdMS_TO_TICKS(stairs_speed));
             }
-            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-            xSemaphoreGive(led_mutex);
-        } else {
-            ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during turning off");
-        }
+            break;
 
-        i += stairs_group_size;
-        vTaskDelay(pdMS_TO_TICKS(stairs_speed));
+        case EFFECT_DIRECTION_END:
+            for (int i = 0; i < steps; i += stairs_group_size) {
+                if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+                    for (int j = 0; j < stairs_group_size && (i + j) < steps; j++) {
+                        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i + j, 0, 0, 0));
+                    }
+                    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                    xSemaphoreGive(led_mutex);
+                } else {
+                    ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_task during turning off");
+                }
+                vTaskDelay(pdMS_TO_TICKS(stairs_speed));
+            }
+            break;
+
+        case EFFECT_DIRECTION_BOTH:
+            {
+                int start = steps / 2;
+                int end = start - 1;
+
+                while (start >= 0 || end < steps) {
+                    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+                        for (int j = 0; j < stairs_group_size; j++) {
+                            if ((start - j) >= 0) {
+                                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, start - j, 0, 0, 0));
+                            }
+                            if ((end + j) < steps) {
+                                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, end + j, 0, 0, 0));
+                            }
+                        }
+                        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                        xSemaphoreGive(led_mutex);
+                    } else {
+                        ESP_LOGE(TAG, "Failed to take led_mutex in diverging effect");
+                    }
+
+                    start -= stairs_group_size;
+                    end += stairs_group_size;
+                    vTaskDelay(pdMS_TO_TICKS(stairs_speed));
+                }
+            }
+            break;
     }
 
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
@@ -340,6 +432,10 @@ static void led_strip_stairs_effect_task(void *arg) {
 }
 
 void led_strip_stairs_effect(void) {
+    led_strip_stairs_effect_from_start();
+}
+
+void led_strip_stairs_effect_from_start(void) {
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
         if (effect_task_handle != NULL) {
             vTaskDelete(effect_task_handle);
@@ -349,10 +445,44 @@ void led_strip_stairs_effect(void) {
         custom_color_mode = true;
         effect_running = true;
 
-        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect", 4096, NULL, 5, &effect_task_handle);
+        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_start", 4096, (void *)EFFECT_DIRECTION_START, 5, &effect_task_handle);
         xSemaphoreGive(led_mutex);
     } else {
-        ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect");
+        ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_from_start");
+    }
+}
+
+void led_strip_stairs_effect_from_end(void) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        if (effect_task_handle != NULL) {
+            vTaskDelete(effect_task_handle);
+            effect_task_handle = NULL;
+        }
+
+        custom_color_mode = true;
+        effect_running = true;
+
+        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_end", 4096, (void *)EFFECT_DIRECTION_END, 5, &effect_task_handle);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_from_end");
+    }
+}
+
+void led_strip_stairs_effect_both(void) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        if (effect_task_handle != NULL) {
+            vTaskDelete(effect_task_handle);
+            effect_task_handle = NULL;
+        }
+
+        custom_color_mode = true;
+        effect_running = true;
+
+        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_both", 4096, (void *)EFFECT_DIRECTION_BOTH, 5, &effect_task_handle);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in stairs_effect_both");
     }
 }
 
@@ -364,6 +494,7 @@ void led_strip_stop_effect(void) {
         }
         custom_color_mode = false;
         set_all_leds(0, 0, 0);
+        effect_running = false;
         xSemaphoreGive(led_mutex);
     } else {
         ESP_LOGE(TAG, "Failed to take led_mutex in stop_effect");

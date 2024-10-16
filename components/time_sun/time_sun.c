@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdbool.h>
+#include "wifi.h"
 
 #define TAG "TIME_SUN"
 #define SUNRISE_SUNSET_API_URL "https://api.sunrisesunset.io/json?lat=49.553516&lng=25.594767&formatted=0"
@@ -20,8 +21,8 @@ static size_t response_len = 0;
 
 time_t sunrise_time = 0;
 time_t sunset_time = 0;
-bool volatile is_night_time = false;
-bool volatile ignore_sun = false;
+volatile bool is_night_time = false;
+volatile bool ignore_sun = false;
 
 SemaphoreHandle_t is_night_time_mutex;
 
@@ -37,7 +38,7 @@ static void convert_time_to_24h_format(const char *time_str_12h, char *time_str_
         }
         snprintf(time_str_24h, max_size, "%02d:%02d:%02d", hour, minute, second);
     } else {
-        ESP_LOGE(TAG, "Не вдалося розпарсити рядок часу: %s", time_str_12h);
+        ESP_LOGE(TAG, "Unable to parse the time string: %s", time_str_12h);
         strncpy(time_str_24h, "00:00:00", max_size);
     }
 }
@@ -55,7 +56,7 @@ static void clock_task(void *pvParameter)
 
         char strftime_buf[64];
         strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
-        ESP_LOGI(TAG, "Поточний час: %s", strftime_buf);
+        ESP_LOGI(TAG, "Current time: %s", strftime_buf);
 
         if (timeinfo.tm_mday != last_day) {
             last_day = timeinfo.tm_mday;
@@ -67,12 +68,12 @@ static void clock_task(void *pvParameter)
             if ((now >= sunset_time) || (now < sunrise_time)) {
                 if (!is_night_time) {
                     is_night_time = true;
-                    ESP_LOGE(TAG, "Нічний час настав. Значення is_night_time = %d", is_night_time);
+                    ESP_LOGE(TAG, "Night time has arrived. The value is_night_time = %d", is_night_time);
                 }
             } else {
                 if (is_night_time) {
                     is_night_time = false;
-                    ESP_LOGE(TAG, "Денний час настав. Значення is_night_time = %d", is_night_time);
+                    ESP_LOGE(TAG, "Daytime has arrived. The value is_night_time = %d", is_night_time);
                 }
             }
             warned = false;
@@ -90,24 +91,24 @@ static void clock_task(void *pvParameter)
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
-    switch(evt->event_id) {
-    case HTTP_EVENT_ON_DATA:
-        if (evt->data_len > 0) {
-            if (response_len + evt->data_len < RESPONSE_BUFFER_SIZE - 1) {
-                memcpy(response_buffer + response_len, evt->data, evt->data_len);
-                response_len += evt->data_len;
-                response_buffer[response_len] = '\0';
-            } else {
-                ESP_LOGE(TAG, "Response too large for buffer");
-                return ESP_FAIL;
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0) {
+                if (response_len + evt->data_len < RESPONSE_BUFFER_SIZE - 1) {
+                    memcpy(response_buffer + response_len, evt->data, evt->data_len);
+                    response_len += evt->data_len;
+                    response_buffer[response_len] = '\0';
+                } else {
+                    ESP_LOGE(TAG, "Response too large for buffer");
+                    return ESP_FAIL;
+                }
             }
-        }
-        break;
-    case HTTP_EVENT_ON_FINISH:
-        ESP_LOGI(TAG, "Response Buffer: %s", response_buffer);
-        break;
-    default:
-        break;
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGI(TAG, "Response Buffer: %s", response_buffer);
+            break;
+        default:
+            break;
     }
     return ESP_OK;
 }
@@ -126,7 +127,7 @@ static void obtain_time(void)
     initialize_sntp();
 
     time_t now = 0;
-    struct tm timeinfo = { 0 };
+    struct tm timeinfo = {0};
     int retry = 0;
     const int retry_count = 10;
 
@@ -193,8 +194,6 @@ static void get_sunrise_sunset_times(char *sunrise_time_str, size_t sunrise_str_
                     cJSON_IsString(sunset_json) && (sunset_json->valuestring != NULL)) {
                     strncpy(sunrise_time_str, sunrise_json->valuestring, sunrise_str_size);
                     strncpy(sunset_time_str, sunset_json->valuestring, sunset_str_size);
-                    ESP_LOGI(TAG, "Sunrise: %s", sunrise_time_str);
-                    ESP_LOGI(TAG, "Sunset: %s", sunset_time_str);
                 } else {
                     ESP_LOGE(TAG, "Invalid sunrise or sunset format in JSON");
                 }
@@ -218,6 +217,8 @@ void time_sun_init(void)
     setenv("TZ", "EET-2EEST,M3.5.0/3,M10.5.0/4", 1);
     tzset();
 
+    wifi_wait_connected();
+
     obtain_time();
 
     xTaskCreate(clock_task, "clock_task", 4096, NULL, 5, NULL);
@@ -235,7 +236,7 @@ void time_sun_display(void)
 
     char strftime_buf[64];
     strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
-    ESP_LOGI(TAG, "Поточна дата/час у Тернополі: %s", strftime_buf);
+    ESP_LOGI(TAG, "Current date/time in Ternopil: %s", strftime_buf);
 
     char sunrise_str[64];
     char sunset_str[64];
@@ -246,8 +247,8 @@ void time_sun_display(void)
     convert_time_to_24h_format(sunrise_str, sunrise_24h, sizeof(sunrise_24h));
     convert_time_to_24h_format(sunset_str, sunset_24h, sizeof(sunset_24h));
 
-    ESP_LOGI(TAG, "Схід сонця (24г): %s", sunrise_24h);
-    ESP_LOGI(TAG, "Захід сонця (24г): %s", sunset_24h);
+    ESP_LOGI(TAG, "Sunrise time: %s", sunrise_24h);
+    ESP_LOGI(TAG, "Sunset time: %s", sunset_24h);
 
     struct tm sunrise_tm = {0};
     struct tm sunset_tm = {0};
@@ -283,10 +284,10 @@ void time_sun_display(void)
     double time_until_sunset = difftime(sunset_time, now);
 
     if (time_until_sunrise > 0) {
-        ESP_LOGI(TAG, "До сходу сонця: %.0f секунд", time_until_sunrise);
+        ESP_LOGI(TAG, "Until sunrise: %.0f seconds", time_until_sunrise);
     } else if (time_until_sunset > 0) {
-        ESP_LOGI(TAG, "До заходу сонця: %.0f секунд", time_until_sunset);
+        ESP_LOGI(TAG, "Until sunset: %.0f seconds", time_until_sunset);
     } else {
-        ESP_LOGI(TAG, "Сонце вже зайшло сьогодні.");
+        ESP_LOGI(TAG, "The sun has already set today.");
     }
 }

@@ -45,8 +45,9 @@ static void convert_time_to_24h_format(const char *time_str_12h, char *time_str_
 
 static void clock_task(void *pvParameter)
 {
-    static int last_day = -1;
     static bool warned = false;
+    static bool updated_at_1am = false;
+    static bool updated_at_1pm = false;
 
     while (1) {
         time_t now;
@@ -58,22 +59,33 @@ static void clock_task(void *pvParameter)
         strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
         ESP_LOGI(TAG, "Current time: %s", strftime_buf);
 
-        if (timeinfo.tm_mday != last_day) {
-            last_day = timeinfo.tm_mday;
-            ESP_LOGI(TAG, "Date has changed, updating sunrise and sunset times.");
+        if (timeinfo.tm_hour == 0 && timeinfo.tm_min == 0) {
+            updated_at_1am = false;
+            updated_at_1pm = false;
+        }
+
+        if (timeinfo.tm_hour == 1 && timeinfo.tm_min == 0 && !updated_at_1am) {
+            ESP_LOGI(TAG, "Updating sunrise and sunset times at 1:00 AM.");
             time_sun_display();
+            updated_at_1am = true;
+        }
+
+        if (timeinfo.tm_hour == 13 && timeinfo.tm_min == 0 && !updated_at_1pm) {
+            ESP_LOGI(TAG, "Updating sunrise and sunset times at 1:00 PM.");
+            time_sun_display();
+            updated_at_1pm = true;
         }
 
         if (sunrise_time != 0 && sunset_time != 0) {
             if ((now >= sunset_time) || (now < sunrise_time)) {
                 if (!is_night_time) {
                     is_night_time = true;
-                    ESP_LOGE(TAG, "Night time has arrived. The value is_night_time = %d", is_night_time);
+                    ESP_LOGI(TAG, "Night time has arrived. is_night_time = %d", is_night_time);
                 }
             } else {
                 if (is_night_time) {
                     is_night_time = false;
-                    ESP_LOGE(TAG, "Daytime has arrived. The value is_night_time = %d", is_night_time);
+                    ESP_LOGI(TAG, "Daytime has arrived. is_night_time = %d", is_night_time);
                 }
             }
             warned = false;
@@ -85,9 +97,11 @@ static void clock_task(void *pvParameter)
             is_night_time = false;
         }
 
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(60000 / portTICK_PERIOD_MS);
     }
 }
+
+
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -133,7 +147,7 @@ static void obtain_time(void)
 
     while (timeinfo.tm_year < (2023 - 1900) && ++retry < retry_count) {
         ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
         time(&now);
         localtime_r(&now, &timeinfo);
     }

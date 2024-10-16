@@ -75,21 +75,7 @@ static esp_err_t spiffs_get_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 
-    fseek(file, 0, SEEK_END);
-    size_t file_size = ftell(file);
-    rewind(file);
-
-    char* file_buf = malloc(file_size + 1);
-    if (!file_buf) {
-        fclose(file);
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory");
-        return ESP_FAIL;
-    }
-
-    fread(file_buf, 1, file_size, file);
-    fclose(file);
-    file_buf[file_size] = '\0';
-
+    // Determine MIME type
     const char* mime_type = "text/plain";
     if (strstr(filepath, ".html")) {
         mime_type = "text/html";
@@ -110,10 +96,29 @@ static esp_err_t spiffs_get_handler(httpd_req_t *req) {
     }
 
     httpd_resp_set_type(req, mime_type);
-    esp_err_t ret = httpd_resp_send(req, file_buf, file_size);
-    free(file_buf);
-    return ret;
+
+    char buffer[1024];
+    size_t read_size;
+
+    while ((read_size = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        if (httpd_resp_send_chunk(req, buffer, read_size) != ESP_OK) {
+            fclose(file);
+            ESP_LOGE(TAG, "Failed to send chunk of %s", filepath);
+            return ESP_FAIL;
+        }
+    }
+
+    fclose(file);
+
+    if (httpd_resp_send_chunk(req, NULL, 0) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to finalize response for %s", filepath);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Successfully sent %s", filepath);
+    return ESP_OK;
 }
+
 
 static esp_err_t led_on_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
@@ -432,34 +437,30 @@ static esp_err_t favicon_get_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 
-    fseek(file, 0, SEEK_END);
-    size_t file_size = ftell(file);
-    rewind(file);
+    httpd_resp_set_type(req, "image/x-icon");
 
-    char* file_buf = malloc(file_size);
-    if (!file_buf) {
-        fclose(file);
-        ESP_LOGE(TAG, "Failed to allocate memory for favicon");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory");
-        return ESP_FAIL;
+    char buffer[512];
+    size_t read_size;
+
+    while ((read_size = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        if (httpd_resp_send_chunk(req, buffer, read_size) != ESP_OK) {
+            fclose(file);
+            ESP_LOGE(TAG, "Failed to send chunk of favicon");
+            return ESP_FAIL;
+        }
     }
 
-    size_t read_size = fread(file_buf, 1, file_size, file);
     fclose(file);
 
-    if (read_size != file_size) {
-        ESP_LOGE(TAG, "Failed to read favicon file");
-        free(file_buf);
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read file");
+    if (httpd_resp_send_chunk(req, NULL, 0) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to finalize favicon response");
         return ESP_FAIL;
     }
 
-    httpd_resp_set_type(req, "image/x-icon");
-    esp_err_t ret = httpd_resp_send(req, file_buf, file_size);
-    free(file_buf);
-    ESP_LOGI(TAG, "Sent favicon.ico");
-    return ret;
+    ESP_LOGI(TAG, "Successfully sent favicon.ico");
+    return ESP_OK;
 }
+
 
 static esp_err_t restart_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {

@@ -33,8 +33,8 @@ void app_main(void) {
     motion_start();
 
     mdns_init();
-    mdns_hostname_set("smart-stairs");
-    mdns_instance_name_set("Smart Stairs");
+    mdns_hostname_set("t-spark_stairs");
+    mdns_instance_name_set("T-Spark stairs");
     
     start_webserver();
 }

@@ -33,7 +33,8 @@ typedef enum {
 static void led_strip_effect_task(void *arg);
 static void led_strip_stairs_effect_task(void *arg);
 static void set_all_leds(uint8_t r, uint8_t g, uint8_t b);
-void led_strip_stop_effect(void);
+static esp_err_t led_strip_deinit(void);
+static esp_err_t led_strip_init_with_length(uint16_t length);
 
 void led_strip_init(void) {
     ESP_LOGI(TAG, "Initializing LED strip");
@@ -45,12 +46,10 @@ void led_strip_init(void) {
     }
     ESP_ERROR_CHECK(ret);
 
+    led_mutex = xSemaphoreCreateMutex();
     if (led_mutex == NULL) {
-        led_mutex = xSemaphoreCreateMutex();
-        if (led_mutex == NULL) {
-            ESP_LOGE(TAG, "Failed to create led_mutex");
-            return;
-        }
+        ESP_LOGE(TAG, "Failed to create led_mutex");
+        return;
     }
 
     led_strip_config_t strip_config = {
@@ -124,18 +123,65 @@ void led_strip_set_brightness(uint8_t new_brightness) {
     }
 }
 
-void led_strip_set_length(uint16_t length) {
-    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
-        led_strip_length = length;
-        if (led_strip != NULL) {
-            led_strip_clear(led_strip);
-            led_strip_stop();
-            led_strip_init();
-        }
-        xSemaphoreGive(led_mutex);
-    } else {
-        ESP_LOGE(TAG, "Failed to take led_mutex in set_length");
+esp_err_t led_strip_set_length(uint16_t count) {
+    ESP_LOGI(TAG, "Setting LED strip length to %d", count);
+    
+    led_strip_stop_effect();
+    
+    esp_err_t ret = led_strip_deinit();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinitialize LED strip: %s", esp_err_to_name(ret));
+        return ret;
     }
+    
+    ret = led_strip_init_with_length(count);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize LED strip with count %d: %s", count, esp_err_to_name(ret));
+        return ret;
+    }
+    
+    led_strip_load_parameters();
+    
+    ESP_LOGI(TAG, "LED strip length set to %d successfully", count);
+    return ESP_OK;
+}
+
+static esp_err_t led_strip_deinit(void) {
+    if (led_strip) {
+        ESP_ERROR_CHECK(led_strip_clear(led_strip));
+        ESP_ERROR_CHECK(led_strip_del(led_strip));
+        led_strip = NULL;
+        ESP_LOGI(TAG, "LED strip deinitialized");
+    }
+    return ESP_OK;
+}
+
+
+
+static esp_err_t led_strip_init_with_length(uint16_t length) {
+    led_strip_length = length;
+    
+    led_strip_config_t strip_config = {
+        .strip_gpio_num = LED_STRIP_GPIO,
+        .max_leds = led_strip_length,
+        .led_pixel_format = LED_PIXEL_FORMAT_GRB,
+        .led_model = LED_MODEL_WS2812,
+        .flags.invert_out = false,
+    };
+
+    led_strip_rmt_config_t rmt_config = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = 10 * 1000 * 1000,
+        .flags.with_dma = false,
+    };
+
+    esp_err_t err = led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create new RMT device with length %d: %s", length, esp_err_to_name(err));
+        return err;
+    }
+
+    return ESP_OK;
 }
 
 uint16_t led_strip_get_length(void) {

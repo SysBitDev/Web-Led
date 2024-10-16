@@ -2,6 +2,7 @@
 #define LED_H
 
 #include "led_strip.h"
+#include "esp_err.h"
 
 #define LED_STRIP_GPIO GPIO_NUM_18
 
@@ -11,7 +12,7 @@ void led_strip_stop(void);
 void led_strip_set_brightness(uint8_t new_brightness);
 uint8_t led_strip_get_brightness(void);
 
-void led_strip_set_length(uint16_t length);
+esp_err_t led_strip_set_length(uint16_t length);
 uint16_t led_strip_get_length(void);
 
 bool led_strip_is_effect_running(void);

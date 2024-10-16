@@ -375,6 +375,7 @@ static esp_err_t erase_network_data_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+
 static esp_err_t set_led_count_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
         return ESP_FAIL;
@@ -389,17 +390,30 @@ static esp_err_t set_led_count_handler(httpd_req_t *req) {
             if (count > 1000) count = 1000;
         }
     }
+    
+    ESP_LOGI(TAG, "Received request to set LED count to: %d", count);
+    
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
-        led_strip_set_length((uint16_t)count);
+        ESP_LOGI(TAG, "Mutex acquired, setting LED count.");
+        esp_err_t result = led_strip_set_length((uint16_t)count);
+        if (result != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to set LED count to %d", count);
+            xSemaphoreGive(led_mutex);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to set LED count");
+            return ESP_FAIL;
+        }
+        ESP_LOGI(TAG, "LED count set to %d successfully.", count);
         xSemaphoreGive(led_mutex);
     } else {
         ESP_LOGE(TAG, "Failed to take led_mutex");
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal Server Error");
         return ESP_FAIL;
     }
+    
     httpd_resp_send(req, "LED Count Set", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
+
 
 static esp_err_t get_settings_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
@@ -415,8 +429,8 @@ static esp_err_t get_settings_handler(httpd_req_t *req) {
         xSemaphoreGive(led_mutex);
         char resp[256];
         snprintf(resp, sizeof(resp),
-                 "{\"brightness\":%d,\"color\":{\"r\":%d,\"g\":%d,\"b\":%d},\"stairs_speed\":%d,\"stairs_group_size\":%d, \"led_count\":%d}",
-                 brightness, r, g, b, stairs_speed, stairs_group_size, led_count);
+                 "{\"brightness\":%d,\"color\":{\"r\":%d,\"g\":%d,\"b\":%d},\"stairs_speed\":%d,\"stairs_group_size\":%d,\"led_count\":%d,\"ignore_sun\":%s}",
+                 brightness, r, g, b, stairs_speed, stairs_group_size, led_count, ignore_sun ? "true" : "false");
         httpd_resp_set_type(req, "application/json");
         httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
@@ -426,6 +440,7 @@ static esp_err_t get_settings_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 }
+
 
 static esp_err_t favicon_get_handler(httpd_req_t *req) {
     const char *filepath = "/spiffs/favicon.ico";

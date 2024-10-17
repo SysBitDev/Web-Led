@@ -12,4 +12,6 @@ extern volatile bool ignore_sun;
 void time_sun_init(void);
 void time_sun_display(void);
 
+const char* get_current_time_str(void);
+
 #endif // TIME_SUN_H

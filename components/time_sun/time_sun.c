@@ -26,6 +26,8 @@ volatile bool ignore_sun = false;
 
 SemaphoreHandle_t is_night_time_mutex;
 
+static char current_time_str[64] = "00.00.0000 00:00:00";
+
 static void convert_time_to_24h_format(const char *time_str_12h, char *time_str_24h, size_t max_size)
 {
     int hour, minute, second;
@@ -43,6 +45,16 @@ static void convert_time_to_24h_format(const char *time_str_12h, char *time_str_
     }
 }
 
+const char* get_current_time_str(void)
+{
+    if (xSemaphoreTake(is_night_time_mutex, portMAX_DELAY)) {
+        const char* time_str = current_time_str;
+        xSemaphoreGive(is_night_time_mutex);
+        return time_str;
+    }
+    return "Error";
+}
+
 static void clock_task(void *pvParameter)
 {
     static bool warned = false;
@@ -57,7 +69,13 @@ static void clock_task(void *pvParameter)
 
         char strftime_buf[64];
         strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
-        ESP_LOGI(TAG, "Current time: %s", strftime_buf);
+        // ESP_LOGI(TAG, "Current time: %s", strftime_buf);
+
+        if (xSemaphoreTake(is_night_time_mutex, portMAX_DELAY)) {
+            strncpy(current_time_str, strftime_buf, sizeof(current_time_str) - 1);
+            current_time_str[sizeof(current_time_str) - 1] = '\0';
+            xSemaphoreGive(is_night_time_mutex);
+        }
 
         if (timeinfo.tm_hour == 0 && timeinfo.tm_min == 0) {
             updated_at_1am = false;
@@ -97,11 +115,9 @@ static void clock_task(void *pvParameter)
             is_night_time = false;
         }
 
-        vTaskDelay(60000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
-
-
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -147,7 +163,7 @@ static void obtain_time(void)
 
     while (timeinfo.tm_year < (2023 - 1900) && ++retry < retry_count) {
         ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
-        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
         time(&now);
         localtime_r(&now, &timeinfo);
     }
@@ -235,10 +251,15 @@ void time_sun_init(void)
 
     obtain_time();
 
+    // Ініціалізація м'ютекса
+    is_night_time_mutex = xSemaphoreCreateMutex();
+    if (is_night_time_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create is_night_time_mutex");
+    }
+
     xTaskCreate(clock_task, "clock_task", 4096, NULL, 5, NULL);
 
     time_sun_display();
-    is_night_time_mutex = xSemaphoreCreateMutex();
 }
 
 void time_sun_display(void)

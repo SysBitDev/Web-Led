@@ -511,6 +511,26 @@ static esp_err_t toggle_ignore_sun_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t current_time_handler(httpd_req_t *req)
+{
+    const char* time_str = get_current_time_str();
+
+    char json_resp[128];
+    snprintf(json_resp, sizeof(json_resp), "{\"current_time\":\"%s\"}", time_str);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_resp, HTTPD_RESP_USE_STRLEN);
+
+    return ESP_OK;
+}
+
+static httpd_uri_t current_time_uri = {
+    .uri      = "/current-time",
+    .method   = HTTP_GET,
+    .handler  = current_time_handler,
+    .user_ctx = NULL
+};
+
 static httpd_uri_t toggle_ignore_sun_uri = {
     .uri      = "/toggle-ignore-sun",
     .method   = HTTP_GET,
@@ -706,6 +726,7 @@ void start_webserver(void) {
         httpd_register_uri_handler(server, &restart);
         httpd_register_uri_handler(server, &favicon);
         httpd_register_uri_handler(server, &toggle_ignore_sun_uri);
+        httpd_register_uri_handler(server, &current_time_uri);
 
         static httpd_uri_t spiffs_uri = {
             .uri = "/*",

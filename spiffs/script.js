@@ -158,29 +158,45 @@ function toggleIgnoreSun() {
     xhttp.send();
 }
 
+function fetchCurrentTime() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+          try {
+              var response = JSON.parse(this.responseText);
+              document.getElementById('currentTime').textContent = response.current_time;
+          } catch (e) {
+              console.error("Failed to parse JSON:", e);
+          }
+      }
+  };
+  xhttp.open('GET', '/current-time', true);
+  xhttp.send();
+}
+
 function fetchSettings() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
       if (this.readyState == 4 && this.status == 200) {
         var settings = JSON.parse(this.responseText);
-        // Update brightness
+
         document.getElementById('brightnessSlider').value = settings.brightness;
         document.getElementById('brightnessInput').value = settings.brightness;
-        // Update stairs speed
+
         document.getElementById('stairsSpeedSlider').value = settings.stairs_speed;
         document.getElementById('stairsSpeedInput').value = settings.stairs_speed;
-        // Update number of LEDs
+
         document.getElementById('ledCountSlider').value = settings.led_count;
         document.getElementById('ledCountInput').value = settings.led_count;
-        // Update color picker
+
         var rHex = ('0' + settings.color.r.toString(16)).slice(-2);
         var gHex = ('0' + settings.color.g.toString(16)).slice(-2);
         var bHex = ('0' + settings.color.b.toString(16)).slice(-2);
         var colorHex = '#' + rHex + gHex + bHex;
         document.getElementById('colorPicker').value = colorHex;
-        // Update stairs group size
+
         updateStairsGroupSize(settings.stairs_group_size);
-        // Update ignore sun button text
+
         var ignoreSunButton = document.getElementById('ignoreSunButton');
         if (settings.ignore_sun) {
             ignoreSunButton.textContent = 'Ignore Sun: ON';
@@ -193,7 +209,9 @@ function fetchSettings() {
     xhttp.send();
 }
 
-// Initialize values on page load
+
 window.onload = function() {
   fetchSettings();
+  fetchCurrentTime();
+  setInterval(fetchCurrentTime, 1000);
 };

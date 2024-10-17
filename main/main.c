@@ -21,7 +21,7 @@ void app_main(void) {
 
     init_spiffs();
     
-    // time_sun_init();
+    time_sun_init();
 
     led_strip_init();
 

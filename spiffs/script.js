@@ -6,7 +6,6 @@ function sendRequest(url) {
     }
   };
   xhttp.open('GET', url, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateBrightness(value) {
@@ -18,7 +17,6 @@ function updateBrightness(value) {
     }
   };
   xhttp.open('GET', '/set-brightness?value=' + value, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateBrightnessInput(value) {
@@ -32,7 +30,6 @@ function updateBrightnessInput(value) {
     }
   };
   xhttp.open('GET', '/set-brightness?value=' + value, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateStairsSpeed(value) {
@@ -46,7 +43,6 @@ function updateStairsSpeed(value) {
     }
   };
   xhttp.open('GET', '/set-stairs-speed?value=' + value, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateStairsSpeedInput(value) {
@@ -60,7 +56,6 @@ function updateStairsSpeedInput(value) {
     }
   };
   xhttp.open('GET', '/set-stairs-speed?value=' + value, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateLedCount(value) {
@@ -72,7 +67,6 @@ function updateLedCount(value) {
     }
   };
   xhttp.open('GET', '/set-led-count?value=' + value, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateLedCountInput(value) {
@@ -86,7 +80,6 @@ function updateLedCountInput(value) {
     }
   };
   xhttp.open('GET', '/set-led-count?value=' + value, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateColor(value) {
@@ -100,7 +93,6 @@ function updateColor(value) {
     }
   };
   xhttp.open('GET', '/set-color?r=' + r + '&g=' + g + '&b=' + b, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function updateStairsGroupSize(value) {
@@ -118,7 +110,6 @@ function updateStairsGroupSize(value) {
     }
   };
   xhttp.open('GET', '/set-stairs-group-size?value=' + value, true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function saveParameters() {
@@ -130,7 +121,6 @@ function saveParameters() {
     }
   };
   xhttp.open('GET', '/save-parameters', true);
-  xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
   xhttp.send();
 }
 function eraseNetworkData() {
@@ -142,7 +132,6 @@ function eraseNetworkData() {
       }
     };
     xhttp.open('GET', '/erase-network-data', true);
-    xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
     xhttp.send();
   }
 }
@@ -166,7 +155,6 @@ function toggleIgnoreSun() {
         }
     };
     xhttp.open('GET', '/toggle-ignore-sun', true);
-    xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
     xhttp.send();
 }
 
@@ -202,7 +190,6 @@ function fetchSettings() {
       }
     };
     xhttp.open('GET', '/get-settings', true);
-    xhttp.setRequestHeader('Authorization', 'Basic YWRtaW46cGFzc3dvcmQ=');
     xhttp.send();
 }
 

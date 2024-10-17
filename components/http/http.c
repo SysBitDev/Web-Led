@@ -19,23 +19,33 @@ static httpd_handle_t server = NULL;
 #define BASIC_AUTH_USERNAME "admin"
 #define BASIC_AUTH_PASSWORD "password"
 #define BASIC_AUTH_ENCODED "YWRtaW46cGFzc3dvcmQ="
-#define BASIC_AUTH_HEADER "Basic YWRtaW46cGFzc3dvcmQ="
 
 static SemaphoreHandle_t led_mutex = NULL;
 
 static esp_err_t basic_auth_get_handler(httpd_req_t *req) {
     char auth_header[128] = {0};
     size_t auth_header_len = sizeof(auth_header);
+
     if (httpd_req_get_hdr_value_str(req, "Authorization", auth_header, auth_header_len) != ESP_OK) {
         httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Login Required\"");
         httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
         return ESP_FAIL;
     }
-    if (strncmp(auth_header, BASIC_AUTH_HEADER, strlen(BASIC_AUTH_HEADER)) != 0) {
+
+    const char *auth_prefix = "Basic ";
+    if (strncmp(auth_header, auth_prefix, strlen(auth_prefix)) != 0) {
         httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Login Required\"");
         httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
         return ESP_FAIL;
     }
+
+    const char *auth_base64 = auth_header + strlen(auth_prefix);
+    if (strcmp(auth_base64, BASIC_AUTH_ENCODED) != 0) {
+        httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Login Required\"");
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+        return ESP_FAIL;
+    }
+
     return ESP_OK;
 }
 
@@ -54,6 +64,10 @@ void list_spiffs_files(void) {
 }
 
 static esp_err_t spiffs_get_handler(httpd_req_t *req) {
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
+
     char filepath[ESP_VFS_PATH_MAX + 128];
     strlcpy(filepath, "/spiffs", sizeof(filepath));
     if (strcmp(req->uri, "/") == 0) {
@@ -118,7 +132,6 @@ static esp_err_t spiffs_get_handler(httpd_req_t *req) {
     ESP_LOGI(TAG, "Successfully sent %s", filepath);
     return ESP_OK;
 }
-
 
 static esp_err_t led_on_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
@@ -375,7 +388,6 @@ static esp_err_t erase_network_data_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
 static esp_err_t set_led_count_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
         return ESP_FAIL;
@@ -390,9 +402,7 @@ static esp_err_t set_led_count_handler(httpd_req_t *req) {
             if (count > 1000) count = 1000;
         }
     }
-    
     ESP_LOGI(TAG, "Received request to set LED count to: %d", count);
-    
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
         ESP_LOGI(TAG, "Mutex acquired, setting LED count.");
         esp_err_t result = led_strip_set_length((uint16_t)count);
@@ -409,11 +419,9 @@ static esp_err_t set_led_count_handler(httpd_req_t *req) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal Server Error");
         return ESP_FAIL;
     }
-    
     httpd_resp_send(req, "LED Count Set", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
-
 
 static esp_err_t get_settings_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
@@ -441,8 +449,11 @@ static esp_err_t get_settings_handler(httpd_req_t *req) {
     }
 }
 
-
 static esp_err_t favicon_get_handler(httpd_req_t *req) {
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
+
     const char *filepath = "/spiffs/favicon.ico";
 
     FILE* file = fopen(filepath, "rb");
@@ -476,7 +487,6 @@ static esp_err_t favicon_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
 static esp_err_t restart_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
         return ESP_FAIL;
@@ -488,6 +498,10 @@ static esp_err_t restart_handler(httpd_req_t *req) {
 }
 
 static esp_err_t toggle_ignore_sun_handler(httpd_req_t *req) {
+    if (basic_auth_get_handler(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
+
     ignore_sun = !ignore_sun;
     const char* resp_str = ignore_sun ? "Sun is now ignored." : "Sun is now considered.";
     char resp_json[128];
@@ -692,7 +706,6 @@ void start_webserver(void) {
         httpd_register_uri_handler(server, &restart);
         httpd_register_uri_handler(server, &favicon);
         httpd_register_uri_handler(server, &toggle_ignore_sun_uri);
-
 
         static httpd_uri_t spiffs_uri = {
             .uri = "/*",

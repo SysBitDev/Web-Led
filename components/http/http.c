@@ -341,27 +341,48 @@ static esp_err_t reset_to_rgb_handler(httpd_req_t *req) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal Server Error");
         return ESP_FAIL;
     }
-    httpd_resp_send(req, "RGB Mode Restored", HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "RGB Mode Activated. Please click 'Save Parameters' to save changes.", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
+
 
 static esp_err_t save_parameters_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {
         return ESP_FAIL;
     }
+    led_strip_save_parameters();
+
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
-        led_strip_save_parameters();
         uint8_t brightness = led_strip_get_brightness();
         uint8_t r, g, b;
         led_strip_get_color(&r, &g, &b);
         bool custom_color = led_strip_get_custom_color_mode();
+        bool rgb_mode_current = led_strip_get_rgb_mode();
         uint16_t stairs_speed = led_strip_get_stairs_speed();
         uint16_t stairs_group_size = led_strip_get_stairs_group_size();
         uint16_t led_count = led_strip_get_length();
         xSemaphoreGive(led_mutex);
-        char resp[256];
-        snprintf(resp, sizeof(resp), "Parameters Saved:\nBrightness: %d\nColor Mode: %s\nR:%d G:%d B:%d\nStairs Speed: %d ms\nStairs Group Size: %d\nLED Count: %d",
-                 brightness, custom_color ? "Custom" : "RGB", r, g, b, stairs_speed, stairs_group_size, led_count);
+
+        char resp[512];
+        snprintf(resp, sizeof(resp),
+                 "{\n"
+                 "  \"brightness\": %d,\n"
+                 "  \"color_mode\": \"%s\",\n"
+                 "  \"color\": {\"r\": %d, \"g\": %d, \"b\": %d},\n"
+                 "  \"rgb_mode\": %s,\n"
+                 "  \"stairs_speed\": %d,\n"
+                 "  \"stairs_group_size\": %d,\n"
+                 "  \"led_count\": %d\n"
+                 "}",
+                 brightness,
+                 custom_color ? "Custom" : "RGB",
+                 r, g, b,
+                 rgb_mode_current ? "true" : "false",
+                 stairs_speed,
+                 stairs_group_size,
+                 led_count);
+
+        httpd_resp_set_type(req, "application/json");
         httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
     } else {
@@ -370,6 +391,7 @@ static esp_err_t save_parameters_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 }
+
 
 static esp_err_t erase_network_data_handler(httpd_req_t *req) {
     if (basic_auth_get_handler(req) != ESP_OK) {

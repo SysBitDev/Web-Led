@@ -21,6 +21,10 @@ void led_strip_set_color(uint8_t r, uint8_t g, uint8_t b);
 void led_strip_get_color(uint8_t *r, uint8_t *g, uint8_t *b);
 void led_strip_reset_to_rgb(void);
 
+void led_strip_set_rgb_mode(bool enable);
+
+void hsv_2_rgb(float h, float s, float v, uint8_t *r, uint8_t *g, uint8_t *b);
+
 void led_strip_set_stairs_speed(uint16_t speed);
 uint16_t led_strip_get_stairs_speed(void);
 
@@ -37,6 +41,8 @@ void led_strip_stairs_effect_both(void);
 
 void led_strip_stop_effect(void);
 bool led_strip_get_custom_color_mode(void);
+
+bool led_strip_get_rgb_mode(void);
 
 void led_strip_save_parameters(void);
 void led_strip_load_parameters(void);

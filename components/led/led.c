@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include <math.h>
 #include "led_strip.h"
 
 static const char *TAG = "led_strip";
@@ -23,6 +24,7 @@ static bool custom_color_mode = false;
 static bool wave_direction = false;
 static uint16_t led_strip_length = 470;
 static bool effect_running = false;
+static bool rgb_mode = false;
 
 typedef enum {
     EFFECT_DIRECTION_START = 0,
@@ -35,6 +37,31 @@ static void led_strip_stairs_effect_task(void *arg);
 static void set_all_leds(uint8_t r, uint8_t g, uint8_t b);
 static esp_err_t led_strip_deinit(void);
 static esp_err_t led_strip_init_with_length(uint16_t length);
+
+void hsv_2_rgb(float h, float s, float v, uint8_t *r, uint8_t *g, uint8_t *b) {
+    float c = v * s;
+    float x = c * (1 - fabsf(fmodf(h / 60.0, 2) - 1));
+    float m = v - c;
+    float r_f, g_f, b_f;
+
+    if (h >= 0 && h < 60) {
+        r_f = c; g_f = x; b_f = 0;
+    } else if (h >= 60 && h < 120) {
+        r_f = x; g_f = c; b_f = 0;
+    } else if (h >= 120 && h < 180) {
+        r_f = 0; g_f = c; b_f = x;
+    } else if (h >= 180 && h < 240) {
+        r_f = 0; g_f = x; b_f = c;
+    } else if (h >= 240 && h < 300) {
+        r_f = x; g_f = 0; b_f = c;
+    } else {
+        r_f = c; g_f = 0; b_f = x;
+    }
+
+    *r = (uint8_t)((r_f + m) * 255);
+    *g = (uint8_t)((g_f + m) * 255);
+    *b = (uint8_t)((b_f + m) * 255);
+}
 
 void led_strip_init(void) {
     ESP_LOGI(TAG, "Initializing LED strip");
@@ -82,14 +109,25 @@ static void set_all_leds(uint8_t r, uint8_t g, uint8_t b) {
         return;
     }
 
-    for (int i = 0; i < led_strip_length; i++) {
-        uint8_t adj_r = (uint8_t)((r * brightness) / 100);
-        uint8_t adj_g = (uint8_t)((g * brightness) / 100);
-        uint8_t adj_b = (uint8_t)((b * brightness) / 100);
-        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, adj_r, adj_g, adj_b));
+    if (rgb_mode) {
+        for (int i = 0; i < led_strip_length; i++) {
+            float hue = ((float)i / led_strip_length) * 360.0; // Розподіл кольорів від 0 до 360
+            uint8_t hr, hg, hb;
+            hsv_2_rgb(hue, 1.0, brightness / 100.0, &hr, &hg, &hb);
+            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, hr, hg, hb));
+        }
+    } else {
+        for (int i = 0; i < led_strip_length; i++) {
+            uint8_t adj_r = (uint8_t)((r * brightness) / 100);
+            uint8_t adj_g = (uint8_t)((g * brightness) / 100);
+            uint8_t adj_b = (uint8_t)((b * brightness) / 100);
+            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, adj_r, adj_g, adj_b));
+        }
     }
+
     ESP_ERROR_CHECK(led_strip_refresh(led_strip));
 }
+
 
 void led_strip_start(void) {
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
@@ -198,6 +236,7 @@ void led_strip_set_color(uint8_t r, uint8_t g, uint8_t b) {
         color_g = g;
         color_b = b;
         custom_color_mode = true;
+        rgb_mode = false;
         set_all_leds(color_r, color_g, color_b);
         xSemaphoreGive(led_mutex);
     } else {
@@ -205,18 +244,35 @@ void led_strip_set_color(uint8_t r, uint8_t g, uint8_t b) {
     }
 }
 
+
+void led_strip_set_rgb_mode(bool enable) {
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        rgb_mode = enable;
+        if (enable) {
+            custom_color_mode = false;
+        }
+        set_all_leds(color_r, color_g, color_b);
+        xSemaphoreGive(led_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to take led_mutex in set_rgb_mode");
+    }
+}
+
+bool led_strip_get_rgb_mode(void) {
+    return rgb_mode;
+}
+
 void led_strip_reset_to_rgb(void) {
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
+        rgb_mode = true;
         custom_color_mode = false;
-        color_r = 255;
-        color_g = 255;
-        color_b = 255;
         set_all_leds(color_r, color_g, color_b);
         xSemaphoreGive(led_mutex);
     } else {
         ESP_LOGE(TAG, "Failed to take led_mutex in reset_to_rgb");
     }
 }
+
 
 uint8_t led_strip_get_brightness(void) {
     return brightness;
@@ -285,9 +341,17 @@ static void led_strip_effect_task(void *arg) {
             ESP_ERROR_CHECK(led_strip_clear(led_strip));
 
             int index = wave_direction ? (led_strip_length - 1 - pos) : pos;
-            uint8_t adj_r = (uint8_t)((color_r * brightness) / 100);
-            uint8_t adj_g = (uint8_t)((color_g * brightness) / 100);
-            uint8_t adj_b = (uint8_t)((color_b * brightness) / 100);
+
+            uint8_t adj_r, adj_g, adj_b;
+
+            if (rgb_mode) {
+                float hue = ((float)index / led_strip_length) * 360.0;
+                hsv_2_rgb(hue, 1.0, brightness / 100.0, &adj_r, &adj_g, &adj_b);
+            } else {
+                adj_r = (uint8_t)((color_r * brightness) / 100);
+                adj_g = (uint8_t)((color_g * brightness) / 100);
+                adj_b = (uint8_t)((color_b * brightness) / 100);
+            }
 
             ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, index, adj_r, adj_g, adj_b));
             ESP_ERROR_CHECK(led_strip_refresh(led_strip));
@@ -301,6 +365,7 @@ static void led_strip_effect_task(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
 }
+
 
 void led_strip_wave_effect(void) {
     if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
@@ -557,6 +622,7 @@ void led_strip_save_parameters(void) {
             nvs_set_u8(nvs_handle, "color_g", color_g);
             nvs_set_u8(nvs_handle, "color_b", color_b);
             nvs_set_u8(nvs_handle, "custom_color", custom_color_mode ? 1 : 0);
+            nvs_set_u8(nvs_handle, "rgb_mode", rgb_mode ? 1 : 0);
             nvs_set_u16(nvs_handle, "stairs_speed", stairs_speed);
             nvs_set_u16(nvs_handle, "stairs_group_size", stairs_group_size);
             nvs_commit(nvs_handle);
@@ -583,6 +649,8 @@ void led_strip_load_parameters(void) {
             nvs_get_u8(nvs_handle, "color_b", &color_b);
             nvs_get_u8(nvs_handle, "custom_color", &value);
             custom_color_mode = (value != 0);
+            nvs_get_u8(nvs_handle, "rgb_mode", &value);
+            rgb_mode = (value != 0);
             nvs_get_u16(nvs_handle, "stairs_speed", &stairs_speed);
             nvs_get_u16(nvs_handle, "stairs_group_size", &stairs_group_size);
             nvs_close(nvs_handle);

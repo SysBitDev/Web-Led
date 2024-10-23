@@ -101,7 +101,7 @@ void led_strip_init(void) {
     }
 
     led_strip_load_parameters();
-    set_all_leds(color_r, color_g, color_b);
+    set_all_leds(0, 0, 0);
 }
 
 

@@ -365,22 +365,21 @@ static esp_err_t save_parameters_handler(httpd_req_t *req) {
 
         char resp[512];
         snprintf(resp, sizeof(resp),
-                 "{\n"
-                 "  \"brightness\": %d,\n"
-                 "  \"color_mode\": \"%s\",\n"
-                 "  \"color\": {\"r\": %d, \"g\": %d, \"b\": %d},\n"
-                 "  \"rgb_mode\": %s,\n"
-                 "  \"stairs_speed\": %d,\n"
-                 "  \"stairs_group_size\": %d,\n"
-                 "  \"led_count\": %d\n"
-                 "}",
+                 "Brightness: %d\n"
+                 "Color mode: %s\n"
+                 "Color: {R: %d, G: %d, B: %d}\n"
+                 "stairs_speed: %d\n"
+                 "Stairs group size: %d\n"
+                 "Led count: %d\n",
                  brightness,
                  custom_color ? "Custom" : "RGB",
                  r, g, b,
-                 rgb_mode_current ? "true" : "false",
                  stairs_speed,
                  stairs_group_size,
                  led_count);
+
+        ESP_LOGI(TAG, "Brightness: %d, Color: (%d, %d, %d), RGB Mode: %s, Speed: %d",
+                brightness, r, g, b, rgb_mode_current ? "true" : "false", stairs_speed);
 
         httpd_resp_set_type(req, "application/json");
         httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);

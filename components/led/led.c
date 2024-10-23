@@ -91,6 +91,7 @@ void led_strip_init(void) {
     led_strip_rmt_config_t rmt_config = {
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = 20 * 1000 * 1000,
+        .mem_block_symbols = 64 * 3,
     };
 
     esp_err_t err = led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
@@ -113,11 +114,10 @@ static void set_all_leds(uint8_t r, uint8_t g, uint8_t b) {
     bool turn_off = (r == 0) && (g == 0) && (b == 0);
 
     if (turn_off) {
-        // Вимкнути всі світлодіоди
         ESP_ERROR_CHECK(led_strip_clear(led_strip));
     } else if (rgb_mode) {
         for (int i = 0; i < led_strip_length; i++) {
-            float hue = ((float)i / led_strip_length) * 360.0f; // Розподіл кольорів від 0 до 360
+            float hue = ((float)i / led_strip_length) * 360.0f;
             uint8_t hr, hg, hb;
             hsv_2_rgb(hue, 1.0f, brightness / 100.0f, &hr, &hg, &hb);
             ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, hr, hg, hb));
@@ -222,7 +222,8 @@ static esp_err_t led_strip_init_with_length(uint16_t length) {
 
     led_strip_rmt_config_t rmt_config = {
         .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = 20 * 1000 * 1000, // Підвищуємо роздільну здатність до 20 MHz
+        .resolution_hz = 20 * 1000 * 1000,
+        .mem_block_symbols = 64 * 3,
     };
 
     esp_err_t err = led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
@@ -665,7 +666,7 @@ void led_strip_stairs_effect_from_start(void) {
         custom_color_mode = true;
         effect_running = true;
 
-        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_start", 4096,
+        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_start", 8192,
                     (void *)EFFECT_DIRECTION_START, configMAX_PRIORITIES - 1,
                     &effect_task_handle);
         xSemaphoreGive(led_mutex);
@@ -684,7 +685,7 @@ void led_strip_stairs_effect_from_end(void) {
         custom_color_mode = true;
         effect_running = true;
 
-        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_end", 4096,
+        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_end", 8192,
                     (void *)EFFECT_DIRECTION_END, configMAX_PRIORITIES - 1,
                     &effect_task_handle);
         xSemaphoreGive(led_mutex);
@@ -703,7 +704,7 @@ void led_strip_stairs_effect_both(void) {
         custom_color_mode = true;
         effect_running = true;
 
-        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_both", 4096,
+        xTaskCreate(led_strip_stairs_effect_task, "stairs_effect_both", 8192,
                     (void *)EFFECT_DIRECTION_BOTH, configMAX_PRIORITIES - 1,
                     &effect_task_handle);
         xSemaphoreGive(led_mutex);

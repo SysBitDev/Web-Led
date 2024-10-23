@@ -9,7 +9,7 @@
 
 static const char *TAG = "motion_sensor";
 
-#define MOTION_SENSOR_GPIO_1 GPIO_NUM_19
+#define MOTION_SENSOR_GPIO_1 GPIO_NUM_18
 #define MOTION_SENSOR_GPIO_2 GPIO_NUM_21
 
 static void motion_sensor_isr_handler(void *arg);

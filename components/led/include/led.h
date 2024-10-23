@@ -4,7 +4,7 @@
 #include "led_strip.h"
 #include "esp_err.h"
 
-#define LED_STRIP_GPIO GPIO_NUM_18
+#define LED_STRIP_GPIO GPIO_NUM_25
 
 void led_strip_init(void);
 void led_strip_start(void);
